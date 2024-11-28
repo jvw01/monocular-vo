@@ -166,3 +166,4 @@ cython_debug/
 
 # Ignore folder data
 data/
+convert_envyml_to_reqtxt.py
