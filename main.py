@@ -1,10 +1,12 @@
 import os
 import numpy as np
 import cv2
-import matplotlib as plt
+import matplotlib.pyplot as plt
+# from bootstrap_vo import bootstrap_vo
+# from continuous_vo import continuous_vo
 
 # Setup
-dataset = 2 # 0: KITTI, 1: Malaga, 2: parking
+dataset = 0 # 0: KITTI, 1: Malaga, 2: parking
 parking_path = "" #"data/parking/images/"
 malaga_path = "" #data/malaga/Images/"
 kitti_path = "" #data/kitti/image_0/"
@@ -16,6 +18,8 @@ if dataset == 0:
     ground_truth = ground_truth[:, [-9, -1]] #not sure why they want these particular values[end-8 end8]
     print(ground_truth)
     print(len(ground_truth))
+    plt.plot(ground_truth[:,0],ground_truth[:,1])
+    plt.show()
     last_frame = 4540
     K = np.array([
         [718.856, 0, 607.1928],
