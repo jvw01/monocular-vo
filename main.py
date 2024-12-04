@@ -2,6 +2,7 @@ import os
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+from process_frame import processFrame
 # from bootstrap_vo import bootstrap_vo
 # from continuous_vo import continuous_vo
 
@@ -13,7 +14,7 @@ dataset = 0 # 0: KITTI, 1: Malaga, 2: parking
 parking_path = "" #"data/parking/images/"
 malaga_path = "" #"data/malaga/Images/"
 kitti_path = "" #"data/kitti/image_0/"
-data_VO_path = "" #"data_VO/"
+data_VO_path = "" # for testing purposes
 
 if bootstrap:
     if dataset == 0:
@@ -103,9 +104,17 @@ if bootstrap:
         
         prev_img = image
 
-
+# Test data
 K = np.loadtxt(os.path.join(data_VO_path, 'data_VO/K.txt'))
-key_points = np.loadtxt(os.path.join(data_VO_path, 'data_VO/keypoints.txt')).T
-p_W_landmarks = np.loadtxt(os.path.join(data_VO_path, 'data_VO/landmarks.txt'))
-data_base_img = cv2.imread(os.path.join(data_VO_path, f"data_VO/images/img_000000.png"), cv2.IMREAD_GRAYSCALE)
-query_img = cv2.imread(os.path.join(data_VO_path, f"data_VO/images/img_000001.png"), cv2.IMREAD_GRAYSCALE)
+key_points = np.loadtxt(os.path.join(data_VO_path, 'data_VO/keypoints.txt'), dtype=np.float32) # note: cv2.calcOpticalFlowPyrLK expects float32
+p_W_landmarks = np.loadtxt(os.path.join(data_VO_path, 'data_VO/p_W_landmarks.txt'))
+img = cv2.imread(os.path.join(data_VO_path, f"data_VO/000000.png"), cv2.IMREAD_GRAYSCALE)
+img_prev = cv2.imread(os.path.join(data_VO_path, f"data_VO/000001.png"), cv2.IMREAD_GRAYSCALE)
+
+# S_prev ... state of previous frame
+S_prev = {
+            "keypoints": key_points.T, # dim: 2xK
+            "landmarks": p_W_landmarks.T # dim: 3xK
+        }
+
+S, T_WC = processFrame(img, img_prev, S_prev)
