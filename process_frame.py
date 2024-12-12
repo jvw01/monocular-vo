@@ -1,8 +1,10 @@
 import cv2
 import os
 import numpy as np
-
+import matplotlib.pyplot as plt
 L_m = 4
+
+verbose = True
 
 # TODO:
 # - might need to pass lk_params to cv2.calcOpticalFlowPyrLK in order to optimize tracking for our case
@@ -21,12 +23,22 @@ def processFrame(img, img_prev, S_prev) -> tuple[dict, np.ndarray]:
     # track keypoints from previous frame to current frame with KLT (i.e. pixel coordinates)
     keypoints_prev = S_prev["keypoints"]
     object_points = S_prev["landmarks"]
+    # if verbose:
+    #     plt.imshow(img_prev, cmap='gray')
+    #     plt.scatter(keypoints_prev[1, :], keypoints_prev[0, :], s=5)
+    #     plt.title('Keypoints in previous image')
+    #     plt.show()
     keypoints_prev = keypoints_prev.T.reshape(-1, 1, 2) # calcOpticalFlowPyrLK expects shape (N, 1, 2) where N is the number of keypoints
     object_points = object_points.T.reshape(-1, 1, 3) # shape (N, 1, 3)
     keypoints, status, _ = cv2.calcOpticalFlowPyrLK(prevImg=img_prev, nextImg=img, prevPts=keypoints_prev, nextPts=None)
 
     # filter valid keypoints (note: status is set to 1 if the flow for the corresponding features has been found)
     keypoints = keypoints[status == 1] # dim: Kx2
+    if verbose:
+        plt.imshow(img, cmap='gray')
+        plt.scatter(keypoints[:, 0], keypoints[:, 1], s=5)
+        plt.title('Keypoints tracked')
+        plt.show()
     object_points = object_points[status == 1] # dim: Kx3
 
     # ------------------------------------------------------ 4.2: Estimating current pose
@@ -81,24 +93,39 @@ def processFrame(img, img_prev, S_prev) -> tuple[dict, np.ndarray]:
         new_candidate_keypoints = np.array([kp for kp in new_keypoints if kp.tolist() not in keypoints.tolist()]) # remove duplicates
         new_candidate_keypoints = new_candidate_keypoints.reshape(2, -1) # dim: 2xM
         candidate_keypoints = np.hstack((candidate_keypoints, new_candidate_keypoints))
+        first_observation = np.hstack((first_observation, np.ones(new_candidate_keypoints.shape[1])))
+        pose_at_first_observation = np.hstack((pose_at_first_observation, np.tile(T_WC,(new_candidate_keypoints.shape[1],1))))
 
         S = {
                 "keypoints": keypoints, # dim: 2xK
                 "landmarks": landmarks, # dim: 3xK
                 "candidate_keypoints": candidate_keypoints, # dim: 2xM with M = # candidate keypoints
-                "first_observations": ..., # dim: 2xM with M = # candidate keypoints
-                "pose_at_first_observation": ..., # dim: 12xM with M = # candidate keypoints and 12 since the transformation matrix has dim 3x4 (omit last row)
+                "first_observations": first_observation, # dim: 2xM with M = # candidate keypoints
+                "pose_at_first_observation": pose_at_first_observation # dim: 12xM with M = # candidate keypoints and 12 since the transformation matrix has dim 3x4 (omit last row)
             }
         
     else: # note: this is the case when we are extracting candidate keypoints for the first time
         # ------------------ Extract new keypoints and remove duplicates
+        sift = cv2.SIFT_create()
+        new_keypoints = sift.detect(img)
+        kp_converter = cv2.KeyPoint()
+        new_keypoints = kp_converter.convert(new_keypoints).T
+        if verbose:
+            plt.imshow(img, cmap='gray')
+            plt.scatter(keypoints[0, :], keypoints[1, :])
+            plt.show()
 
+        # new_candidate_keypoints = np.array([kp for kp in new_keypoints if kp.tolist() not in keypoints.tolist()]) # remove duplicates
+        [item for item in new_keypoints.T if np.all(np.linalg.norm(keypoints - item) > 4)]
+        new_keypoints = new_keypoints[np.all(np.any((new_keypoints-keypoints[:, None]), axis=1), axis=0)]
+        first_observation = np.ones(new_candidate_keypoints.shape[1])
+        pose_at_first_observation = np.tile(T_WC,(new_candidate_keypoints.shape[1],1))
         S = {
                 "keypoints": keypoints, # dim: 2xK
                 "landmarks": object_points, # dim: 3xK
-                "candidate_keypoints": ...,
-                "first_observations": ...,
-                "pose_at_first_observation": ...
+                "candidate_keypoints": new_candidate_keypoints, # dim: 2xM with M = # candidate keypoints 
+                "first_observations": first_observation, # dim: 2xM with M = # candidate keypoints
+                "pose_at_first_observation": pose_at_first_observation, # dim: 12xM with M = # candidate keypoints and 12 since the transformation matrix has dim 3x4 (omit last row)
             }
 
     return S, T_WC
