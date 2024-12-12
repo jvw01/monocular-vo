@@ -1,21 +1,24 @@
 import os
 import numpy as np
 import cv2
-import matplotlib as plt
+import matplotlib.pyplot as plt
+from test_init.init import initialization
 
 # Setup
 dataset = 2 # 0: KITTI, 1: Malaga, 2: parking
-parking_path = "" #"data/parking/images/"
-malaga_path = "" #data/malaga/Images/"
-kitti_path = "" #data/kitti/image_0/"
+parking_path = "" 
+malaga_path = ""
+kitti_path = ""
 
 
 if dataset == 0:
     assert 'kitti_path' in locals()
     ground_truth = np.loadtxt(os.path.join(kitti_path, 'data/kitti/poses/05.txt'))
-    ground_truth = ground_truth[:, [-9, -1]] #not sure why they want these particular values[end-8 end8]
+    ground_truth = ground_truth[:, [-9, -1]] 
     print(ground_truth)
     print(len(ground_truth))
+    plt.plot(ground_truth[:,0],ground_truth[:,1])
+    plt.show()
     last_frame = 4540
     K = np.array([
         [718.856, 0, 607.1928],
@@ -43,8 +46,6 @@ elif dataset == 2:
     ground_truth = np.loadtxt(os.path.join(parking_path, 'data/parking/poses.txt'))
     ground_truth = ground_truth[:, [-9, -1]] #correct (matlab=[end-8 end])
     print(ground_truth)
-    plt.plot(ground_truth[1],ground_truth[0])
-    plt.show()
 else:
     raise AssertionError("Invalid dataset selection")
 
@@ -72,9 +73,12 @@ elif dataset == 2:
 else:
     raise AssertionError("Invalid dataset selection")
 
+
 # Continuous operation
 range_frames = range(bootstrap_frames[1] + 1, last_frame + 1)
 prev_img = None
+
+initialization(img0,img1,range_frames)
 
 for i in range_frames:
     print(f"\n\nProcessing frame {i}\n{'=' * 21}\n")
