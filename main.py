@@ -113,7 +113,10 @@ img_prev = cv2.imread(os.path.join(data_VO_path, f"data_VO/000001.png"), cv2.IMR
 # S_prev ... state of previous frame
 S_prev = {
             "keypoints": key_points.T, # dim: 2xK
-            "landmarks": p_W_landmarks.T # dim: 3xK
+            "landmarks": p_W_landmarks.T, # dim: 3xK
+            "candidate_keypoints": None, # no candidate keypoints in the beginning
+            "first_observations": None, # no candidate keypoints in the beginning
+            "pose_at_first_observation": None # no candidate keypoints in the beginning
         }
 
 S, T_WC = processFrame(img, img_prev, S_prev)

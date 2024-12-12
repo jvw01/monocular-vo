@@ -37,54 +37,68 @@ def processFrame(img, img_prev, S_prev) -> tuple[dict, np.ndarray]:
     keypoints = keypoints[inliers].squeeze().T # dim: 2xK
     object_points = object_points[inliers].squeeze().T # dim: 3xK
 
-    
     rotation_matrix_CW, _ = cv2.Rodrigues(rvec_CW)
     rotation_matrix_WC = rotation_matrix_CW.T
     tvec_WC = -tvec_CW
     T_WC = np.hstack((rotation_matrix_WC, tvec_WC))
 
-
     # ------------------------------------------------------ 4.3: Triangulating new landmarks
-    # ------------------ Check existing candidate keypoints from previous frame(s)
+    if S_prev["candidate_keypoints"]:
+        # ------------------ Check existing candidate keypoints from previous frame(s) 
+        candidate_keypoints_prev = S_prev["candidate_keypoints"]
+        candidate_keypoints_prev = candidate_keypoints_prev.T.reshape(-1, 1, 2)
+        candidate_keypoints, status, _ = cv2.calcOpticalFlowPyrLK(prevImg=img_prev, nextImg=img, prevPts=candidate_keypoints_prev, nextPts=None)
 
-    candidate_keypoints_prev = S_prev["candidate_keypoints"]
-    candidate_keypoints_prev = candidate_keypoints_prev.T.reshape(-1, 1, 2)
+        # remove candidate keypoints that were not tracked successfully
+        candidate_keypoints = candidate_keypoints[status == 1] # dim: Kx2
+        candidate_keypoints_prev = candidate_keypoints_prev[status == 1]
+        S_prev["pose_at_first_observation"] = S_prev["pose_at_first_observation"][status == 1]
+        S_prev["first_observations"] = S_prev["first_observations"][status == 1]
 
-    candidate_keypoints, status, _ = cv2.calcOpticalFlowPyrLK(prevImg=img_prev, nextImg=img, prevPts=candidate_keypoints_prev, nextPts=None)
-    candidate_keypoints = candidate_keypoints[status == 1] # dim: Kx2
-    candidate_keypoints_prev = candidate_keypoints_prev[status == 1]
+        # ------------------ Promote keypoints
+        S_prev["first_observations"] = S_prev["first_observations"][status == 1] + 1
 
-    # ------------------ Promote keypoints
-    S_prev["first_observations"] = S_prev["first_observations"][status == 1] + 1
+        promoted_keypoints = candidate_keypoints[S_prev["first_observations"] > L_m]
+        n_promoted_keypoints = promoted_keypoint_poses.shape[0] # ????????????????????????
+        keypoints = np.vstack((keypoints, candidate_keypoints[S_prev["first_observations"] > L_m]))
+        candidate_keypoints = candidate_keypoints[S_prev["first_observations"] <= L_m]
 
+        promoted_keypoint_poses_prev = S_prev["pose_at_first_observation"][S_prev["first_observations"] > L_m]
+        promoted_keypoint_poses = np.tile(T_WC,(n_promoted_keypoints,1))
+        # TODO: CHECK DIMENSIONS OF INPUT TO FUNCTION
+        promoted_candidate_landmarks = cv2.triangulatePoints(promoted_keypoint_poses_prev,promoted_keypoint_poses, candidate_keypoints_prev[S_prev["first_observations"] > L_m], promoted_keypoints)
 
-    promoted_keypoints = candidate_keypoints[S_prev["first_observations"] > L_m]
-    n_promoted_keypoints = promoted_keypoint_poses.shape[0] # ????????????????????????
-    keypoints = np.vstack((keypoints, candidate_keypoints[S_prev["first_observations"] > L_m]))
-    candidate_keypoints = candidate_keypoints[S_prev["first_observations"] <= L_m]
+        landmarks = np.vstack((landmarks, promoted_candidate_landmarks))
 
-    promoted_keypoint_poses_prev = S_prev["pose_at_first_observation"][S_prev["first_observations"] > L_m]
-    promoted_keypoint_poses = np.tile(T_WC,(n_promoted_keypoints,1))
-    # TODO: CHECK DIMENSIONS OF INPUT TO FUNCTION
-    promoted_candidate_landmarks = cv2.triangulatePoints(promoted_keypoint_poses_prev,promoted_keypoint_poses, candidate_keypoints_prev[S_prev["first_observations"] > L_m], promoted_keypoints)
+        S = {}
+        first_observation = S_prev["first_observations"][S_prev["first_observations"] <= L_m]
+        pose_at_first_observation = S_prev["pose_at_first_observation"][S_prev["first_observations"] <= L_m]
 
-    landmarks = np.vstack((landmarks, promoted_candidate_landmarks))
+        # ------------------ Extract new keypoints and remove duplicates
+        # TODO: USE SIFT TO EXTRACT NEW CANDIDATE KEYPOINTS OR HARRIS???????????????
+        sift = cv2.SIFT_create()
+        new_keypoints = sift.detect(img, None)
+        new_candidate_keypoints = np.array([kp for kp in new_keypoints if kp.tolist() not in keypoints.tolist()]) # remove duplicates
+        new_candidate_keypoints = new_candidate_keypoints.reshape(2, -1) # dim: 2xM
+        candidate_keypoints = np.hstack((candidate_keypoints, new_candidate_keypoints))
 
-    
-    S = {}
+        S = {
+                "keypoints": keypoints, # dim: 2xK
+                "landmarks": landmarks, # dim: 3xK
+                "candidate_keypoints": candidate_keypoints, # dim: 2xM with M = # candidate keypoints
+                "first_observations": ..., # dim: 2xM with M = # candidate keypoints
+                "pose_at_first_observation": ..., # dim: 12xM with M = # candidate keypoints and 12 since the transformation matrix has dim 3x4 (omit last row)
+            }
+        
+    else: # note: this is the case when we are extracting candidate keypoints for the first time
+        # ------------------ Extract new keypoints and remove duplicates
 
-    S["pose_at_first_observation"] = S_prev["pose_at_first_observation"][S_prev["first_observations"] <= L_m]
-    S["first_observations"] = S_prev["first_observations"][S_prev["first_observations"] <= L_m]
-
-    # ------------------ Extract new keypoints and remove duplicates
-
-
-    S = {
-            "keypoints": keypoints, # dim: 2xK
-            "landmarks": S_prev["landmarks"] # dim: 3xK
-            "candidate_keypoints": .. # dim: 2xM with M = # candidate keypoints
-            "first_observations": ... # dim: 2xM with M = # candidate keypoints
-            "pose_at_first_observation": ... # dim: 12xM with M = # candidate keypoints and 12 since the transformation matrix has 12 entries
-        }
+        S = {
+                "keypoints": keypoints, # dim: 2xK
+                "landmarks": object_points, # dim: 3xK
+                "candidate_keypoints": ...,
+                "first_observations": ...,
+                "pose_at_first_observation": ...
+            }
 
     return S, T_WC
