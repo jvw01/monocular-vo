@@ -23,7 +23,7 @@ from test_init.init_fct import plotMatches
 #                    f"data/parking/images/img_{bootstrap_frames[1]:05d}.png"), cv2.IMREAD_GRAYSCALE)
 
 
-def initialization(img0, img1, range_frames):
+def initialization(img0, img1, dataset, range_frames, left_images):
     
     print("ok ça fonctionne")
     corner_patch_size = 9
@@ -77,8 +77,14 @@ def initialization(img0, img1, range_frames):
     prev_kp = None
     for i in range_frames:
         plt.clf()
-        img = cv2.imread('data/parking/images/img_{0:05d}.png'.format(i), cv2.IMREAD_GRAYSCALE)
-        #img = cv2.imread('../data/parking/images/img_{0:05d}.png'.format(i), cv2.IMREAD_GRAYSCALE)
+        if dataset == 0:
+            img = cv2.imread(os.path.join('data/kitti/05/image_0/', f"{i:06d}.png"), cv2.IMREAD_GRAYSCALE)
+        elif dataset == 1:
+            img = cv2.imread(os.path.join('data/malaga/malaga-urban-dataset-extract-07_rectified_800x600_Images/', left_images[i]), cv2.IMREAD_GRAYSCALE)
+        elif dataset == 2:
+            img = cv2.imread(os.path.join(f"data/parking/images/img_{i:05d}.png"), cv2.IMREAD_GRAYSCALE)
+        else:
+            raise AssertionError("Invalid dataset selection")
         scores = harris(img, corner_patch_size, harris_kappa)
         kp = selectKeypoints(scores, num_keypoints, nonmaximum_supression_radius)
         desc = describeKeypoints(img, kp, descriptor_radius)

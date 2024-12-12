@@ -15,6 +15,7 @@ if dataset == 0:
     assert 'kitti_path' in locals()
     ground_truth = np.loadtxt(os.path.join(kitti_path, 'data/kitti/poses/05.txt'))
     ground_truth = ground_truth[:, [-9, -1]] 
+    left_images = 0
     print(ground_truth)
     print(len(ground_truth))
     plt.plot(ground_truth[:,0],ground_truth[:,1])
@@ -41,6 +42,7 @@ elif dataset == 1:
 elif dataset == 2:
     assert 'parking_path' in locals()
     last_frame = 598
+    left_images = 0
     K = np.loadtxt(os.path.join(parking_path, 'data/parking/K.txt'))
     #print(K)
     ground_truth = np.loadtxt(os.path.join(parking_path, 'data/parking/poses.txt'))
@@ -78,23 +80,23 @@ else:
 range_frames = range(bootstrap_frames[1] + 1, last_frame + 1)
 prev_img = None
 
-initialization(img0,img1,range_frames)
+initialization(img0,img1,dataset, range_frames, left_images)
 
-for i in range_frames:
-    print(f"\n\nProcessing frame {i}\n{'=' * 21}\n")
-    if dataset == 0:
-        image = cv2.imread(os.path.join(kitti_path, 'data/kitti/05/image_0/', f"{i:06d}.png"), cv2.IMREAD_GRAYSCALE)
-    elif dataset == 1:
-        image = cv2.imread(os.path.join(malaga_path, 
-                        'data/malaga/malaga-urban-dataset-extract-07_rectified_800x600_Images/', 
-                        left_images[i]), cv2.IMREAD_GRAYSCALE)
-    elif dataset == 2:
-        image = cv2.imread(os.path.join(parking_path, 
-                        f"data/parking/images/img_{i:05d}.png"), cv2.IMREAD_GRAYSCALE)
-    else:
-        raise AssertionError("Invalid dataset selection")
+#for i in range_frames:
+#    print(f"\n\nProcessing frame {i}\n{'=' * 21}\n")
+#    if dataset == 0:
+#        image = cv2.imread(os.path.join(kitti_path, 'data/kitti/05/image_0/', f"{i:06d}.png"), cv2.IMREAD_GRAYSCALE)
+#    elif dataset == 1:
+#        image = cv2.imread(os.path.join(malaga_path, 
+#                       'data/malaga/malaga-urban-dataset-extract-07_rectified_800x600_Images/', 
+#                        left_images[i]), cv2.IMREAD_GRAYSCALE)
+#    elif dataset == 2:
+#        image = cv2.imread(os.path.join(parking_path, 
+#                        f"data/parking/images/img_{i:05d}.png"), cv2.IMREAD_GRAYSCALE)
+#    else:
+#        raise AssertionError("Invalid dataset selection")
     
     # Ensures plots refresh
-    cv2.waitKey(10)
+#    cv2.waitKey(10)
     
-    prev_img = image
+#    prev_img = image
