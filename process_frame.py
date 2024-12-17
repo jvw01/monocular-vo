@@ -23,22 +23,32 @@ def processFrame(img, img_prev, S_prev) -> tuple[dict, np.ndarray]:
     # track keypoints from previous frame to current frame with KLT (i.e. pixel coordinates)
     keypoints_prev = S_prev["keypoints"]
     object_points = S_prev["landmarks"]
-    # if verbose:
-    #     plt.imshow(img_prev, cmap='gray')
-    #     plt.scatter(keypoints_prev[1, :], keypoints_prev[0, :], s=5)
-    #     plt.title('Keypoints in previous image')
-    #     plt.show()
     keypoints_prev = keypoints_prev.T.reshape(-1, 1, 2) # calcOpticalFlowPyrLK expects shape (N, 1, 2) where N is the number of keypoints
     object_points = object_points.T.reshape(-1, 1, 3) # shape (N, 1, 3)
     keypoints, status, _ = cv2.calcOpticalFlowPyrLK(prevImg=img_prev, nextImg=img, prevPts=keypoints_prev, nextPts=None)
 
     # filter valid keypoints (note: status is set to 1 if the flow for the corresponding features has been found)
     keypoints = keypoints[status == 1] # dim: Kx2
+
+    #################### DEBUG START ####################
     if verbose:
-        plt.imshow(img, cmap='gray')
-        plt.scatter(keypoints[:, 0], keypoints[:, 1], s=5)
-        plt.title('Keypoints tracked')
+        fig, axs = plt.subplots(2, 1, figsize=(10, 10))
+        keypoints_prev = S_prev["keypoints"]
+
+        # Plot the previous image with previous keypoints
+        axs[0].imshow(img_prev, cmap='gray')
+        axs[0].scatter(keypoints_prev[1, :], keypoints_prev[0, :], s=5)
+        axs[0].set_title('Keypoints in previous image')
+
+        # Plot the current image with tracked keypoints
+        axs[1].imshow(img, cmap='gray')
+        axs[1].scatter(keypoints[1, :], keypoints[0, :], s=6)
+        axs[1].set_title('Keypoints tracked')
+
+        plt.tight_layout()
         plt.show()
+    #################### DEBUG END ####################
+
     object_points = object_points[status == 1] # dim: Kx3
 
     # ------------------------------------------------------ 4.2: Estimating current pose
