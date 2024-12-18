@@ -23,12 +23,12 @@ def processFrame(img, img_prev, S_prev) -> tuple[dict, np.ndarray]:
     # track keypoints from previous frame to current frame with KLT (i.e. pixel coordinates)
     keypoints_prev = S_prev["keypoints"]
     object_points = S_prev["landmarks"]
-    keypoints_prev = keypoints_prev.T.reshape(-1, 1, 2) # calcOpticalFlowPyrLK expects shape (N, 1, 2) where N is the number of keypoints
-    object_points = object_points.T.reshape(-1, 1, 3) # shape (N, 1, 3)
+    keypoints_prev = np.expand_dims(keypoints_prev.T,1) # calcOpticalFlowPyrLK expects shape (N, 1, 2) where N is the number of keypoints
+    object_points = np.expand_dims(object_points.T,1) # shape (N, 1, 3)
     keypoints, status, _ = cv2.calcOpticalFlowPyrLK(prevImg=img_prev, nextImg=img, prevPts=keypoints_prev, nextPts=None)
 
     # filter valid keypoints (note: status is set to 1 if the flow for the corresponding features has been found)
-    keypoints = keypoints[status == 1] # dim: Kx2
+    keypoints = keypoints[status == 1].T # dim: 2xK
 
     #################### DEBUG START ####################
     if verbose:
