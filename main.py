@@ -80,23 +80,4 @@ else:
 range_frames = range(bootstrap_frames[1] + 1, last_frame + 1)
 prev_img = None
 
-initialization(img0,img1,dataset, range_frames, left_images)
-
-#for i in range_frames:
-#    print(f"\n\nProcessing frame {i}\n{'=' * 21}\n")
-#    if dataset == 0:
-#        image = cv2.imread(os.path.join(kitti_path, 'data/kitti/05/image_0/', f"{i:06d}.png"), cv2.IMREAD_GRAYSCALE)
-#    elif dataset == 1:
-#        image = cv2.imread(os.path.join(malaga_path, 
-#                       'data/malaga/malaga-urban-dataset-extract-07_rectified_800x600_Images/', 
-#                        left_images[i]), cv2.IMREAD_GRAYSCALE)
-#    elif dataset == 2:
-#        image = cv2.imread(os.path.join(parking_path, 
-#                        f"data/parking/images/img_{i:05d}.png"), cv2.IMREAD_GRAYSCALE)
-#    else:
-#        raise AssertionError("Invalid dataset selection")
-    
-    # Ensures plots refresh
-#    cv2.waitKey(10)
-    
-#    prev_img = image
+initialization(img0,img1,dataset, range_frames, left_images, K)
