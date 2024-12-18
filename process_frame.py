@@ -23,13 +23,14 @@ def processFrame(img, img_prev, S_prev) -> tuple[dict, np.ndarray]:
     # track keypoints from previous frame to current frame with KLT (i.e. pixel coordinates)
     keypoints_prev = S_prev["keypoints"]
     object_points = S_prev["landmarks"]
-    keypoints_prev = np.expand_dims(keypoints_prev.T,1) # calcOpticalFlowPyrLK expects shape (N, 1, 2) where N is the number of keypoints
-    object_points = np.expand_dims(object_points.T,1) # shape (N, 1, 3)
+    keypoints_prev = keypoints_prev.T # calcOpticalFlowPyrLK expects shape (N, 1, 2) where N is the number of keypoints
+    object_points = object_points.T # shape (N, 1, 3)
     keypoints, status, _ = cv2.calcOpticalFlowPyrLK(prevImg=img_prev, nextImg=img, prevPts=keypoints_prev, nextPts=None)
 
     # filter valid keypoints (note: status is set to 1 if the flow for the corresponding features has been found)
-    keypoints = keypoints[status == 1].T # dim: 2xK
-
+    # keypoints = keypoints[status].T # dim: 2xK
+    keypoints = np.expand_dims(keypoints, 1)[status == 1].T # dim: 2xK
+    object_points = np.expand_dims(object_points, 1)[status == 1].T # dim: 3xK
     #################### DEBUG START ####################
     if verbose:
         fig, axs = plt.subplots(2, 1, figsize=(10, 10))
@@ -37,27 +38,28 @@ def processFrame(img, img_prev, S_prev) -> tuple[dict, np.ndarray]:
 
         # Plot the previous image with previous keypoints
         axs[0].imshow(img_prev, cmap='gray')
-        axs[0].scatter(keypoints_prev[1, :], keypoints_prev[0, :], s=5)
+        axs[0].scatter(keypoints_prev[0, :], keypoints_prev[1, :], s=5)
         axs[0].set_title('Keypoints in previous image')
+        axs[0].axis('equal')
 
         # Plot the current image with tracked keypoints
         axs[1].imshow(img, cmap='gray')
-        axs[1].scatter(keypoints[1, :], keypoints[0, :], s=6)
+        axs[1].scatter(keypoints[0, :], keypoints[1, :], s=5)
         axs[1].set_title('Keypoints tracked')
+        axs[1].axis('equal')
 
         plt.tight_layout()
         plt.show()
     #################### DEBUG END ####################
 
-    object_points = object_points[status == 1] # dim: Kx3
 
     # ------------------------------------------------------ 4.2: Estimating current pose
     # extract the pose using P3P
     K = np.loadtxt(os.path.join("", "data_VO/K.txt")) # camera matrix
-    _, rvec_CW, tvec_CW, inliers = cv2.solvePnPRansac(objectPoints=object_points, imagePoints=keypoints, cameraMatrix=K, distCoeffs=None, flags=cv2.SOLVEPNP_P3P) # rvec, tvec are the rotation and translation vectors from world frame to camera frame
+    _, rvec_CW, tvec_CW, inliers = cv2.solvePnPRansac(objectPoints=object_points.T, imagePoints=keypoints.T, cameraMatrix=K, distCoeffs=None, flags=cv2.SOLVEPNP_P3P) # rvec, tvec are the rotation and translation vectors from world frame to camera frame
     
-    keypoints = keypoints[inliers].squeeze().T # dim: 2xK
-    object_points = object_points[inliers].squeeze().T # dim: 3xK
+    keypoints = keypoints[:, inliers].squeeze() # dim: 2xK
+    object_points = object_points[:, inliers].squeeze() # dim: 3xK
 
     rotation_matrix_CW, _ = cv2.Rodrigues(rvec_CW)
     rotation_matrix_WC = rotation_matrix_CW.T
@@ -96,15 +98,24 @@ def processFrame(img, img_prev, S_prev) -> tuple[dict, np.ndarray]:
         first_observation = S_prev["first_observations"][S_prev["first_observations"] <= L_m]
         pose_at_first_observation = S_prev["pose_at_first_observation"][S_prev["first_observations"] <= L_m]
 
-        # ------------------ Extract new keypoints and remove duplicates
-        # TODO: USE SIFT TO EXTRACT NEW CANDIDATE KEYPOINTS OR HARRIS???????????????
-        sift = cv2.SIFT_create()
-        new_keypoints = sift.detect(img, None)
-        new_candidate_keypoints = np.array([kp for kp in new_keypoints if kp.tolist() not in keypoints.tolist()]) # remove duplicates
-        new_candidate_keypoints = new_candidate_keypoints.reshape(2, -1) # dim: 2xM
-        candidate_keypoints = np.hstack((candidate_keypoints, new_candidate_keypoints))
-        first_observation = np.hstack((first_observation, np.ones(new_candidate_keypoints.shape[1])))
-        pose_at_first_observation = np.hstack((pose_at_first_observation, np.tile(T_WC,(new_candidate_keypoints.shape[1],1))))
+    # ------------------ Extract new keypoints and remove duplicates
+    # TODO: USE SIFT TO EXTRACT NEW CANDIDATE KEYPOINTS OR HARRIS???????????????
+
+    new_keypoints = cv2.goodFeaturesToTrack(img, mask=None, maxCorners=None, qualityLevel=0.3, minDistance=None, useHarrisDetector=True)
+
+    new_candidate_keypoints = np.array([kp for kp in new_keypoints if kp.tolist() not in keypoints.tolist()]) # remove duplicates
+    # [item for item in new_keypoints.T if np.all(np.linalg.norm(keypoints - item) > 4)]
+    # new_keypoints = new_keypoints[np.all(np.any((new_keypoints-keypoints[:, None]), axis=1), axis=0)]
+
+    new_candidate_keypoints = new_candidate_keypoints.reshape(2, -1) # dim: 2xM
+    candidate_keypoints = np.hstack((candidate_keypoints, new_candidate_keypoints))
+    first_observation = np.hstack((first_observation, np.ones(new_candidate_keypoints.shape[1])))
+    pose_at_first_observation = np.hstack((pose_at_first_observation, np.tile(T_WC,(new_candidate_keypoints.shape[1],1))))
+    
+    if verbose:
+        plt.imshow(img, cmap='gray')
+        plt.scatter(keypoints[0, :], keypoints[1, :])
+        plt.show()
 
         S = {
                 "keypoints": keypoints, # dim: 2xK
@@ -114,22 +125,7 @@ def processFrame(img, img_prev, S_prev) -> tuple[dict, np.ndarray]:
                 "pose_at_first_observation": pose_at_first_observation # dim: 12xM with M = # candidate keypoints and 12 since the transformation matrix has dim 3x4 (omit last row)
             }
         
-    else: # note: this is the case when we are extracting candidate keypoints for the first time
-        # ------------------ Extract new keypoints and remove duplicates
-        sift = cv2.SIFT_create()
-        new_keypoints = sift.detect(img)
-        kp_converter = cv2.KeyPoint()
-        new_keypoints = kp_converter.convert(new_keypoints).T
-        if verbose:
-            plt.imshow(img, cmap='gray')
-            plt.scatter(keypoints[0, :], keypoints[1, :])
-            plt.show()
 
-        # new_candidate_keypoints = np.array([kp for kp in new_keypoints if kp.tolist() not in keypoints.tolist()]) # remove duplicates
-        [item for item in new_keypoints.T if np.all(np.linalg.norm(keypoints - item) > 4)]
-        new_keypoints = new_keypoints[np.all(np.any((new_keypoints-keypoints[:, None]), axis=1), axis=0)]
-        first_observation = np.ones(new_candidate_keypoints.shape[1])
-        pose_at_first_observation = np.tile(T_WC,(new_candidate_keypoints.shape[1],1))
         S = {
                 "keypoints": keypoints, # dim: 2xK
                 "landmarks": object_points, # dim: 3xK

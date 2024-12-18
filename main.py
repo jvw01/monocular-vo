@@ -111,8 +111,12 @@ img_prev = cv2.imread(os.path.join(data_VO_path, f"data_VO/000000.png"), cv2.IMR
 img = cv2.imread(os.path.join(data_VO_path, f"data_VO/000001.png"), cv2.IMREAD_GRAYSCALE)
 
 # S_prev ... state of previous frame
+
+# Swap columns of keypoints
+key_points = key_points.T
+key_points[[1, 0], :] = key_points[[0, 1], :]
 S_prev = {
-            "keypoints": key_points.T, # dim: 2xK
+            "keypoints": key_points, # dim: 2xK
             "landmarks": p_W_landmarks.T, # dim: 3xK
             "candidate_keypoints": None, # no candidate keypoints in the beginning
             "first_observations": None, # no candidate keypoints in the beginning
