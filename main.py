@@ -16,49 +16,41 @@ malaga_path = "" #"data/malaga/Images/"
 kitti_path = "" #"data/kitti/image_0/"
 data_VO_path = "" # for testing purposes
 
-if bootstrap:
-    if dataset == 0:
-        assert 'kitti_path' in locals()
-        ground_truth = np.loadtxt(os.path.join(kitti_path, 'data/kitti/poses/05.txt'))
-        ground_truth = ground_truth[:, [-9, -1]] #not sure why they want these particular values[end-8 end8]
-        print(ground_truth)
-        print(len(ground_truth))
-        plt.plot(ground_truth[:,0],ground_truth[:,1])
-        plt.show()
-        last_frame = 4540
-        K = np.array([
-            [718.856, 0, 607.1928],
-            [0, 718.856, 185.2157],
-            [0, 0, 1]
-        ])
-    elif dataset == 1:
-        assert 'malaga_path' in locals()
-        images = sorted(os.listdir(os.path.join(malaga_path, 
-                    'data/malaga-urban-dataset-extract-07/malaga-urban-dataset-extract-07_rectified_800x600_Images/')))
-        left_images = images[0::2]
-        #print(left_images) #correct
-        last_frame = len(left_images) 
-        #print(last_frame) #2121 correct
-        K = np.array([
-            [621.18428, 0, 404.0076],
-            [0, 621.18428, 309.05989],
-            [0, 0, 1]
-        ])
-    elif dataset == 2:
-        assert 'parking_path' in locals()
-        last_frame = 598
-        K = np.loadtxt(os.path.join(parking_path, 'data/parking/K.txt'))
-        #print(K)
-        ground_truth = np.loadtxt(os.path.join(parking_path, 'data/parking/poses.txt'))
-        ground_truth = ground_truth[:, [-9, -1]] #correct (matlab=[end-8 end])
-        print(ground_truth)
-        plt.plot(ground_truth[1],ground_truth[0])
-        plt.show()
-    else:
-        raise AssertionError("Invalid dataset selection")
+if dataset == 0:
+    assert 'kitti_path' in locals()
+    ground_truth = np.loadtxt(os.path.join(kitti_path, 'data/kitti/poses/05.txt'))
+    ground_truth = ground_truth[:, [-9, -1]]
+    last_frame = 4540
+    K = np.array([
+        [718.856, 0, 607.1928],
+        [0, 718.856, 185.2157],
+        [0, 0, 1]
+    ])
+elif dataset == 1:
+    assert 'malaga_path' in locals()
+    images = sorted(os.listdir(os.path.join(malaga_path, 
+                'data/malaga-urban-dataset-extract-07/malaga-urban-dataset-extract-07_rectified_800x600_Images/')))
+    left_images = images[0::2]
+    last_frame = len(left_images) 
+    K = np.array([
+        [621.18428, 0, 404.0076],
+        [0, 621.18428, 309.05989],
+        [0, 0, 1]
+    ])
+elif dataset == 2:
+    assert 'parking_path' in locals()
+    last_frame = 598
+    K = np.loadtxt(os.path.join(parking_path, 'data/parking/K.txt'))
+    ground_truth = np.loadtxt(os.path.join(parking_path, 'data/parking/poses.txt'))
+    ground_truth = ground_truth[:, [-9, -1]]
+    print(ground_truth)
+    plt.plot(ground_truth[1],ground_truth[0])
+    plt.show()
+else:
+    raise AssertionError("Invalid dataset selection")
 
-    # Bootstrap
-    # Need to set bootstrap_frames
+if bootstrap:
+    # Load frames to perform bootstrapping on
     bootstrap_frames = [0, 2]
 
     if dataset == 0:
@@ -80,47 +72,79 @@ if bootstrap:
                         f"data/parking/images/img_{bootstrap_frames[1]:05d}.png"), cv2.IMREAD_GRAYSCALE)
     else:
         raise AssertionError("Invalid dataset selection")
+    
+    # TODO: DO BOOTSTRAP ACTION HERE
+    S_prev = {
+                "keypoints": key_points, # dim: 2xK
+                "landmarks": p_W_landmarks.T, # dim: 3xK
+                "candidate_keypoints": None, # no candidate keypoints in the beginning
+                "first_observations": None, # no candidate keypoints in the beginning
+                "pose_at_first_observation": None # no candidate keypoints in the beginning
+            }
 
-    # Continuous operation
+else:
+    # Circumvent bootstrapping by loading precomputed bootstrapping data
+    if dataset == 0:
+        key_points = np.loadtxt(os.path.join(data_VO_path, 'data_VO/keypoints.txt'), dtype=np.float32) # note: cv2.calcOpticalFlowPyrLK expects float32
+        p_W_landmarks = np.loadtxt(os.path.join(data_VO_path, 'data_VO/p_W_landmarks.txt'), dtype=np.float32)
+        img0 = cv2.imread(os.path.join(data_VO_path, f"data_VO/000000.png"), cv2.IMREAD_GRAYSCALE)
+        img1 = cv2.imread(os.path.join(data_VO_path, f"data_VO/000001.png"), cv2.IMREAD_GRAYSCALE)
+        key_points = key_points.T
+        # Swap columns of keypoints
+        key_points[[1, 0], :] = key_points[[0, 1], :]
+        key_points = key_points.T
+        S_prev = {
+                    "keypoints": key_points, # dim: Kx2
+                    "landmarks": p_W_landmarks, # dim: Kx3
+                    "candidate_keypoints": None, # no candidate keypoints in the beginning
+                    "first_observations": None, # no candidate keypoints in the beginning
+                    "pose_at_first_observation": None # no candidate keypoints in the beginning
+                }
+    else:
+        raise NotImplementedError(f'Pre-computed bootstrapping values not available for this dataset with index {i}.')
+
+
+# Continuous operation
+if bootstrap:
     range_frames = range(bootstrap_frames[1] + 1, last_frame + 1)
-    prev_img = None
+else:
+    # range_frames = range(1, last_frame + 1)
+    range_frames = range(1, 100) # Hardcode this because we don't have the rest of the dataset available right now
+img_prev = img0
 
-    for i in range_frames:
-        print(f"\n\nProcessing frame {i}\n{'=' * 21}\n")
-        if dataset == 0:
-            image = cv2.imread(os.path.join(kitti_path, 'data/kitti/05/image_0/', f"{i:06d}.png"), cv2.IMREAD_GRAYSCALE)
-        elif dataset == 1:
-            image = cv2.imread(os.path.join(malaga_path, 
-                            'data/malaga/malaga-urban-dataset-extract-07_rectified_800x600_Images/', 
-                            left_images[i]), cv2.IMREAD_GRAYSCALE)
-        elif dataset == 2:
-            image = cv2.imread(os.path.join(parking_path, 
-                            f"data/parking/images/img_{i:05d}.png"), cv2.IMREAD_GRAYSCALE)  
-        else:
-            raise AssertionError("Invalid dataset selection")
-        
-        # Ensures plots refresh
-        cv2.waitKey(10)
-        
-        prev_img = image
+trajectory = np.zeros((3, len(range_frames)+1))
+n_tracked_keypoints_list = []
+n_promoted_keypoints_list = []
 
-# Test data
-key_points = np.loadtxt(os.path.join(data_VO_path, 'data_VO/keypoints.txt'), dtype=np.float32) # note: cv2.calcOpticalFlowPyrLK expects float32
-p_W_landmarks = np.loadtxt(os.path.join(data_VO_path, 'data_VO/p_W_landmarks.txt'))
-img_prev = cv2.imread(os.path.join(data_VO_path, f"data_VO/000000.png"), cv2.IMREAD_GRAYSCALE)
-img = cv2.imread(os.path.join(data_VO_path, f"data_VO/000001.png"), cv2.IMREAD_GRAYSCALE)
+for index, i in enumerate(range_frames):
+    print(f"\n\nProcessing frame {i}\n{'=' * 21}\n")
+    if dataset == 0:
+        img = cv2.imread(os.path.join(kitti_path, 'data/kitti/05/image_0/', f"{i:06d}.png"), cv2.IMREAD_GRAYSCALE)
+    elif dataset == 1:
+        img = cv2.imread(os.path.join(malaga_path, 
+                        'data/malaga/malaga-urban-dataset-extract-07_rectified_800x600_Images/', 
+                        left_images[i]), cv2.IMREAD_GRAYSCALE)
+    elif dataset == 2:
+        img = cv2.imread(os.path.join(parking_path, 
+                        f"data/parking/images/img_{i:05d}.png"), cv2.IMREAD_GRAYSCALE)  
+    else:
+        raise AssertionError("Invalid dataset selection")
+    
+    S, T_WC, n_tracked_keypoints, n_promoted_keypoints = processFrame(img, img_prev, S_prev)
+    img_prev = img
+    S_prev = S
+    trajectory[:, index] = T_WC[:, 3]
+    n_tracked_keypoints_list += [n_tracked_keypoints]
+    n_promoted_keypoints_list += [n_promoted_keypoints]
 
-# S_prev ... state of previous frame
+fig, axs = plt.subplots(3, 1, figsize=(7, 7))
+axs[0].title.set_text('Trajectory')
+axs[0].plot(trajectory[0, :], trajectory[2, :])
+axs[1].title.set_text('# Tracked keypoints at each frame')
+axs[1].plot(n_tracked_keypoints_list)
+axs[2].title.set_text('# Promoted keypoints at each frame')
+axs[2].plot(n_promoted_keypoints_list)
+plt.tight_layout()
+plt.show()
 
-# Swap columns of keypoints
-key_points = key_points.T
-key_points[[1, 0], :] = key_points[[0, 1], :]
-S_prev = {
-            "keypoints": key_points, # dim: 2xK
-            "landmarks": p_W_landmarks.T, # dim: 3xK
-            "candidate_keypoints": None, # no candidate keypoints in the beginning
-            "first_observations": None, # no candidate keypoints in the beginning
-            "pose_at_first_observation": None # no candidate keypoints in the beginning
-        }
-
-S, T_WC = processFrame(img, img_prev, S_prev)
+print('------------------\nPipeline finished')
