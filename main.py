@@ -85,6 +85,7 @@ if bootstrap:
 else:
     # Circumvent bootstrapping by loading precomputed bootstrapping data
     if dataset == 0:
+        K = np.loadtxt(os.path.join("", "data_VO/K.txt")) # camera matrix
         key_points = np.loadtxt(os.path.join(data_VO_path, 'data_VO/keypoints.txt'), dtype=np.float32) # note: cv2.calcOpticalFlowPyrLK expects float32
         p_W_landmarks = np.loadtxt(os.path.join(data_VO_path, 'data_VO/p_W_landmarks.txt'), dtype=np.float32)
         img0 = cv2.imread(os.path.join(data_VO_path, f"data_VO/000000.png"), cv2.IMREAD_GRAYSCALE)
@@ -130,7 +131,7 @@ for index, i in enumerate(range_frames):
     else:
         raise AssertionError("Invalid dataset selection")
     
-    S, T_WC, n_tracked_keypoints, n_promoted_keypoints = processFrame(img, img_prev, S_prev)
+    S, T_WC, n_tracked_keypoints, n_promoted_keypoints = processFrame(img, img_prev, S_prev, K)
     img_prev = img
     S_prev = S
     trajectory[:, index] = T_WC[:, 3]
