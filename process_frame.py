@@ -2,10 +2,12 @@ import cv2
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from harris import harris
+from select_keypoints import selectKeypoints
 # from scipy.spatial.transform import Rotation
 
 L_m = 4
-angle_threshold_for_triangulation = 10 # in degrees
+angle_threshold_for_triangulation = 10 # in degrees TODO: tune this parameter
 angle_threshold_for_triangulation *= np.pi / 180 # convert to radians
 verbose = False
 
@@ -18,10 +20,14 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
         img: current frame (query image)
         img_prev: previous frame (database image)
         S_prev: state of previous frame (i.e., the keypoints in the previous frame and the 3D landmarks associated to them)
+        K: camera matrix
     Returns:
         S: state of current frame (i.e., the keypoints in the current frame and the 3D landmarks associated to them)
         T_WC: current pose
+        n_tracked_keypoints: number of tracked keypoints
+        n_promoted_keypoints: number of promoted keypoints
     """
+
     # ------------------------------------------------------ 4.1: Associating keypoints
     # track keypoints from previous frame to current frame with KLT (i.e. pixel coordinates)
     keypoints_prev = S_prev["keypoints"] # dim: Kx2
@@ -74,47 +80,64 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
 
         # remove candidate keypoints that were not tracked successfully
         candidate_keypoints = np.expand_dims(candidate_keypoints, 1)[status == 1] # dim: Kx2
-        candidate_keypoints_prev = np.expand_dims(candidate_keypoints_prev, 1)[status == 1] # These are required for triangulation
         S_prev["pose_at_first_observations"] = np.expand_dims(S_prev["pose_at_first_observations"], 1)[status == 1]
         S_prev["first_observations"] = np.expand_dims(S_prev["first_observations"], 1)[status == 1]
         S_prev["keypoint_tracker"] = np.expand_dims(S_prev["keypoint_tracker"], 1)[status == 1] + 1
 
         # ------------------ Promote keypoints
-        promoted_keypoints = candidate_keypoints[S_prev["keypoint_tracker"] > L_m]
-        keypoints = np.vstack((keypoints, promoted_keypoints))
+        promotable_keypoints = candidate_keypoints[S_prev["keypoint_tracker"] > L_m]
+        n_promoted_keypoints = promotable_keypoints.shape[0]
+
+        # remove promotable keypoints from candidate list -> keypoints that can eventually not be promoted will be added again
         candidate_keypoints = candidate_keypoints[S_prev["keypoint_tracker"] <= L_m]
-        n_promoted_keypoints = promoted_keypoints.shape[0]
+        first_observations = S_prev["first_observations"][S_prev["keypoint_tracker"] <= L_m]
+        pose_at_first_observations = S_prev["pose_at_first_observations"][S_prev["keypoint_tracker"] <= L_m]
+        keypoint_tracker = S_prev["keypoint_tracker"][S_prev["keypoint_tracker"] <= L_m]
 
         # If any keypoint has been promoted, attempt to perform triangulation (requires minimum baseline)
         if n_promoted_keypoints > 0:
             print("There are promotable keypoints")
-            candidate_keypoints_prev = candidate_keypoints_prev[S_prev["keypoint_tracker"] > L_m]
-            promoted_keypoints_first_observations = S_prev["first_observations"][S_prev["keypoint_tracker"] > L_m]
-            promoted_keypoint_poses_prev = S_prev["pose_at_first_observations"][S_prev["keypoint_tracker"] > L_m]
+            promotable_keypoints_first_observations = S_prev["first_observations"][S_prev["keypoint_tracker"] > L_m]
+            promotable_keypoints_initial_poses = S_prev["pose_at_first_observations"][S_prev["keypoint_tracker"] > L_m]
+            promotable_keypoints_tracker = S_prev["keypoint_tracker"][S_prev["keypoint_tracker"] > L_m]
 
-            # use bearing vectors to calculate the angle between first observation and current observation
-            promoted_candidate_landmarks = np.empty((3, n_promoted_keypoints), dtype=np.float32)
+            # use bearing vectors to calculate the angle between first observation and current observation -> v1 and v2 point to the same landmark
             K_inv = np.linalg.inv(K)
+            T_WC_first_observation = promotable_keypoints_initial_poses.reshape(-1, 3, 4)
+            R_CC = T_WC[:3,:3].T @ T_WC_first_observation[:,:3,:3] # rotation matrix from first camera frame to current camera frame
+            R_CC_transposed = np.transpose(R_CC, axes=(0, 2, 1))
+            v1 = (np.matmul(R_CC_transposed, K_inv) @ (np.vstack((promotable_keypoints_first_observations.T, np.ones((1, n_promoted_keypoints)))).T)[:,:,None]).squeeze().T # v1 = R⁽⁻¹⁾ * K⁽⁻¹⁾ * [u1; v1; 1]
+            v2 = K_inv @ np.vstack((promotable_keypoints.T, np.ones((1, n_promoted_keypoints)))) # v2 = K⁽⁻¹⁾ * [u2; v2; 1] (no need for rotation since we are already in correct frame)
+            alpha = np.arccos(np.sum(v1 * v2, axis=0) / (np.linalg.norm(v1, axis=0) * np.linalg.norm(v2, axis=0))) # angle between bearing vectors in radians
+            triangulate = alpha > angle_threshold_for_triangulation # mask that indicates if the angle between the bearing vectors is large enough for triangulation
+
+            # filter keypoints that can be promoted (angle between bearing vectors is large enough)
+            promoted_keypoints = promotable_keypoints[triangulate]
+            n_promoted_keypoints = promoted_keypoints.shape[0]
+            keypoints = np.vstack((keypoints, promoted_keypoints))
+
+            # triangulate landmarks with least squares approximation
+            promoted_keypoints_first_observations = promotable_keypoints_first_observations[triangulate]
+            promoted_keypoint_poses_prev = promotable_keypoints_initial_poses[triangulate]
             T_WC_first_observation = promoted_keypoint_poses_prev.reshape(-1, 3, 4)
-            R_CC = T_WC[:3,:3].T @ T_WC_first_observation[:,:3,:3] 
-            p1 = (np.matmul(R_CC, K_inv) @ (np.vstack((promoted_keypoints_first_observations.T, np.ones((1, n_promoted_keypoints)))).T)[:,:,None]).squeeze().T # bearing vector p1 in current frame
-            p2 = K_inv @ np.vstack((promoted_keypoints.T, np.ones((1, n_promoted_keypoints)))) # bearing vector p2 in current frame
-            alpha = np.arccos(np.sum(p1 * p2, axis=0) / (np.linalg.norm(p1, axis=0) * np.linalg.norm(p2, axis=0))) # angle between bearing vectors in radians
-            triangulate = alpha > angle_threshold_for_triangulation
-            # TODO: filter out keypoints that are not triangulatable
-            M2 = K @ T_WC # TODO: WC or CW??????
+            
+            promoted_landmarks = np.empty((n_promoted_keypoints, 3), dtype=np.float32)
+            T_CW = np.linalg.inv(np.vstack((T_WC, np.array([0,0,0,1]))))[:3, :] # transformation matrix from world to camera frame
+            M2 = K @ T_CW
 
             for i in range(n_promoted_keypoints):
-                # T_WC_first_observation = promoted_keypoint_poses_prev.reshape(-1, 3, 4)[i,:,:]
-                M1 = K @ T_WC_first_observation[i]
-                landmark = cv2.triangulatePoints(projMatr1=M1, projMatr2=M2, projPoints1=candidate_keypoints_prev[i], projPoints2=promoted_keypoints[i])
-                promoted_candidate_landmarks[:,i] = np.squeeze(cv2.convertPointsFromHomogeneous(landmark.T)).T # convert landmarks to non-homogeneous coordinates
+                T_CW_first_observation = np.linalg.inv(np.vstack((T_WC_first_observation[i], np.array([0,0,0,1]))))[:3, :] # transformation matrix from world to camera frame
+                M1 = K @ T_CW_first_observation
+                landmark = cv2.triangulatePoints(projMatr1=M1, projMatr2=M2, projPoints1=promoted_keypoints_first_observations[i], projPoints2=promoted_keypoints[i])
+                promoted_landmarks[i, :] = np.squeeze(cv2.convertPointsFromHomogeneous(landmark.T)).T # convert landmarks to non-homogeneous coordinates
 
-            landmarks = np.vstack((landmarks, promoted_candidate_landmarks.T))
+            landmarks = np.vstack((landmarks, promoted_landmarks))
 
-        keypoint_tracker = S_prev["keypoint_tracker"][S_prev["keypoint_tracker"] <= L_m]
-        first_observations = S_prev["first_observations"][S_prev["keypoint_tracker"] <= L_m]
-        pose_at_first_observations = S_prev["pose_at_first_observations"][S_prev["keypoint_tracker"] <= L_m]
+            # add keypoints that cannot be promoted back to candidate list
+            candidate_keypoints = np.vstack((candidate_keypoints, promotable_keypoints[~triangulate]))
+            first_observations = np.vstack((first_observations, promotable_keypoints_first_observations[~triangulate]))
+            pose_at_first_observations = np.vstack((pose_at_first_observations, promotable_keypoints_initial_poses[~triangulate]))
+            keypoint_tracker = np.hstack((keypoint_tracker, promotable_keypoints_tracker[~triangulate]))
     
     else:
         candidate_keypoints = np.empty((0, 2), dtype=np.float32)
@@ -124,13 +147,13 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
         n_promoted_keypoints = 0
 
     # ------------------ Extract new keypoints and remove duplicates
-    new_keypoints = cv2.goodFeaturesToTrack(img, maxCorners=200, qualityLevel=0.1, minDistance=8, mask=None, blockSize=9, useHarrisDetector=True, k=0.08).squeeze() # dim: Kx2
-
+    # OPTION 1: goodFeaturesToTrack
+    new_candidate_keypoints = cv2.goodFeaturesToTrack(img, maxCorners=200, qualityLevel=0.1, minDistance=8, mask=None, blockSize=9, useHarrisDetector=True, k=0.08).squeeze() # dim: Kx2
     # #################### DEBUG START ####################
     # if verbose:
     #     # Plot the current image with new keypoints
     #     plt.imshow(img, cmap='gray')
-    #     plt.scatter(new_keypoints.T[0, :], new_keypoints.T[1, :], s=5)
+    #     plt.scatter(new_candidate_keypoints.T[0, :], new_candidate_keypoints.T[1, :], s=5)
     #     plt.title('New Keypoints')
     #     plt.axis('equal')
 
@@ -140,16 +163,22 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
     #     plt.close()
     # #################### DEBUG END ####################
 
+    # OPTION 2: use functions from exercise 03
+    # corner_patch_size = 9
+    # harris_kappa = 0.08
+    # num_keypoints = 200
+    # nonmaximum_supression_radius = 8
+    # harris_scores = harris(img, corner_patch_size, harris_kappa)
+    # new_candidate_keypoints = selectKeypoints(harris_scores, num_keypoints, nonmaximum_supression_radius).T
+
+    # remove duplicates in keypoints and candidate keypoints
     distance_threshold = 8 # TODO: tune this parameter
+    is_duplicate_kp = np.any(np.linalg.norm(new_candidate_keypoints[:, None, :] - keypoints[None, :, :], axis=2) < distance_threshold, axis=1) # note: for broadcasting, dimensions have to match or be one
+    new_candidate_keypoints = new_candidate_keypoints[~is_duplicate_kp]
+    is_duplicate_ckp = np.any(np.linalg.norm(new_candidate_keypoints[:, None, :] - candidate_keypoints[None, :, :], axis=2) < distance_threshold, axis=1)
+    new_candidate_keypoints = new_candidate_keypoints[~is_duplicate_ckp]
 
-    # remove duplicates in keypoints
-    is_duplicate_kp = np.any(np.linalg.norm(new_keypoints[:, None, :] - keypoints[None, :, :], axis=2) < distance_threshold, axis=1) # note: for broadcasting, dimensions have to match or be one
-    new_keypoints = new_keypoints[~is_duplicate_kp]
-
-    # remove duplicates in candidate keypoints
-    is_duplicate_ckp = np.any(np.linalg.norm(new_keypoints[:, None, :] - candidate_keypoints[None, :, :], axis=2) < distance_threshold, axis=1)
-    new_candidate_keypoints = new_keypoints[~is_duplicate_ckp]
-
+    # update state
     candidate_keypoints = np.vstack((candidate_keypoints, new_candidate_keypoints))
     keypoint_tracker = np.hstack((keypoint_tracker, np.ones(new_candidate_keypoints.shape[0], dtype=np.int64)))
     first_observations = np.vstack((first_observations, new_candidate_keypoints))
@@ -161,7 +190,7 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
             "candidate_keypoints": candidate_keypoints, # dim: Mx2 with M = # candidate keypoints
             "first_observations": first_observations, # dim: Mx2 with M = # candidate keypoints
             "pose_at_first_observations": pose_at_first_observations, # dim: Mx12 with M = # candidate keypoints and 12 since the transformation matrix has dim 3x4 (omit last row)
-            "keypoint_tracker": keypoint_tracker # dim: Mx1 with M = # candidate keypoints
+            "keypoint_tracker": keypoint_tracker # dim: M with M = # candidate keypoints
         }
 
     return S, T_WC, n_tracked_keypoints, n_promoted_keypoints
