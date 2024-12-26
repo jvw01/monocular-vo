@@ -122,11 +122,12 @@ fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
 
 ax1.set_title('Keypoints')  # Set the title of the figure
 img_plot = ax1.imshow(img0, cmap='gray')
-keypoints_plot, = ax1.plot([], [], 'ro', markersize=5, label='Keypoints')
+keypoints_plot, = ax1.plot([], [], 'yo', markersize=5, label='Keypoints')
 candidate_keypoints_plot, = ax1.plot([], [], 'bo', markersize=5, label='Candidate Keypoints')
 ax1.legend()
 
 ax2.set_title('Estimated Trajectory')
+landmarks_plot, = ax2.plot([], [], 'ro', markersize=5, label='Landmarks')
 trajectory_plot, = ax2.plot([], [], 'b-o', markersize=5, label='Trajectory')
 ax2.legend()
 
@@ -158,9 +159,17 @@ for index, i in enumerate(range_frames):
         candidate_keypoints_plot.set_data(S["candidate_keypoints"][:, 0], S["candidate_keypoints"][:, 1])
     else:
         candidate_keypoints_plot.set_data([], [])
+    keypoints_plot.set_label(f'Keypoints: {len(S["keypoints"])}')
+    candidate_keypoints_plot.set_label(f'Candidate Keypoints: {len(S["candidate_keypoints"]) if S["candidate_keypoints"] is not None else 0}')
+    ax1.legend()
+
+    landmarks_plot.set_data(S["landmarks"][:, 0], S["landmarks"][:, 2])
     trajectory_plot.set_data(trajectory[0, :index+1], trajectory[2, :index+1])
-    ax2.set_xlim(np.min(trajectory[0, :index+1]) - 1, np.max(trajectory[0, :index+1]) + 1)
-    ax2.set_ylim(np.min(trajectory[2, :index+1]) - 1, np.max(trajectory[2, :index+1]) + 1)
+    combined_x = np.concatenate((trajectory[0, :index+1], S["landmarks"][:, 0]))
+    combined_z = np.concatenate((trajectory[2, :index+1], S["landmarks"][:, 2]))
+    ax2.set_xlim(np.min(combined_x) - 1, np.max(combined_x) + 1)
+    ax2.set_ylim(np.min(combined_z) - 1, np.max(combined_z) + 1)
+
     plt.pause(0.01)
 
 fig, axs = plt.subplots(3, 1, figsize=(7, 7))
