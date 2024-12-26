@@ -117,6 +117,19 @@ trajectory = np.zeros((3, len(range_frames)+1))
 n_tracked_keypoints_list = []
 n_promoted_keypoints_list = []
 
+# Visualisation of VO pipeline
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
+
+ax1.set_title('Keypoints')  # Set the title of the figure
+img_plot = ax1.imshow(img0, cmap='gray')
+keypoints_plot, = ax1.plot([], [], 'ro', markersize=5, label='Keypoints')
+candidate_keypoints_plot, = ax1.plot([], [], 'bo', markersize=5, label='Candidate Keypoints')
+ax1.legend()
+
+ax2.set_title('Estimated Trajectory')
+trajectory_plot, = ax2.plot([], [], 'b-o', markersize=5, label='Trajectory')
+ax2.legend()
+
 for index, i in enumerate(range_frames):
     print(f"\n\nProcessing frame {i}\n{'=' * 21}\n")
     if dataset == 0:
@@ -137,6 +150,18 @@ for index, i in enumerate(range_frames):
     trajectory[:, index] = T_WC[:, 3]
     n_tracked_keypoints_list += [n_tracked_keypoints]
     n_promoted_keypoints_list += [n_promoted_keypoints]
+
+    # Update the plots
+    img_plot.set_data(img)
+    keypoints_plot.set_data(S["keypoints"][:, 0], S["keypoints"][:, 1])
+    if S["candidate_keypoints"] is not None:
+        candidate_keypoints_plot.set_data(S["candidate_keypoints"][:, 0], S["candidate_keypoints"][:, 1])
+    else:
+        candidate_keypoints_plot.set_data([], [])
+    trajectory_plot.set_data(trajectory[0, :index+1], trajectory[2, :index+1])
+    ax2.set_xlim(np.min(trajectory[0, :index+1]) - 1, np.max(trajectory[0, :index+1]) + 1)
+    ax2.set_ylim(np.min(trajectory[2, :index+1]) - 1, np.max(trajectory[2, :index+1]) + 1)
+    plt.pause(0.01)
 
 fig, axs = plt.subplots(3, 1, figsize=(7, 7))
 axs[0].title.set_text('Trajectory')
