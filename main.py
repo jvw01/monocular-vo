@@ -116,6 +116,8 @@ img_prev = img0
 trajectory = np.zeros((3, len(range_frames)+1))
 n_tracked_keypoints_list = []
 n_promoted_keypoints_list = []
+n_lost_candidates_at_angle_filtering = []
+n_lost_candidates_at_cartesian_mask = []
 
 # Visualisation of VO pipeline
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
@@ -145,12 +147,15 @@ for index, i in enumerate(range_frames):
     else:
         raise AssertionError("Invalid dataset selection")
     
-    S, T_WC, n_tracked_keypoints, n_promoted_keypoints = processFrame(img, img_prev, S_prev, K)
+    S, T_WC, debug_dict = processFrame(img, img_prev, S_prev, K)
     img_prev = img
     S_prev = S
     trajectory[:, index] = T_WC[:, 3]
-    n_tracked_keypoints_list += [n_tracked_keypoints]
-    n_promoted_keypoints_list += [n_promoted_keypoints]
+    n_tracked_keypoints_list += [debug_dict["n_tracked_keypoints"]]
+    n_promoted_keypoints_list += [debug_dict["n_promoted_keypoints"]]
+    n_lost_candidates_at_angle_filtering += [debug_dict["n_lost_candidates_at_angle_filtering"]]
+    n_lost_candidates_at_cartesian_mask += [debug_dict["n_lost_candidates_at_cartesian_mask"]]
+
 
     # Update the plots
     img_plot.set_data(img)
@@ -172,13 +177,16 @@ for index, i in enumerate(range_frames):
 
     plt.pause(0.01)
 
-fig, axs = plt.subplots(3, 1, figsize=(7, 7))
+fig, axs = plt.subplots(2, 1, figsize=(7, 7))
 axs[0].title.set_text('Trajectory')
 axs[0].plot(trajectory[0, :], trajectory[2, :])
 axs[1].title.set_text('# Tracked keypoints at each frame')
-axs[1].plot(n_tracked_keypoints_list)
-axs[2].title.set_text('# Promoted keypoints at each frame')
-axs[2].plot(n_promoted_keypoints_list)
+axs[1].plot(n_tracked_keypoints_list, label="n tracked keypoints")
+axs[1].plot(n_promoted_keypoints_list, label="n promoted keypoints")
+axs[1].plot(n_lost_candidates_at_angle_filtering, label="n_lost_candidates_at_angle_filtering")
+axs[1].plot(n_lost_candidates_at_cartesian_mask, label="n_lost_candidates_at_cartesian_mask")
+axs[1].legend()
+
 plt.tight_layout()
 plt.show()
 

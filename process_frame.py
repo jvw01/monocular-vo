@@ -11,7 +11,7 @@ min_depth = 1 # TODO: tune this parameter
 max_depth = 80 # TODO: tune this parameter
 min_width = -100 # TODO: tune this parameter
 max_width = 100 # TODO: tune this parameter
-angle_threshold_for_triangulation = 1 # in degrees TODO: tune this parameter
+angle_threshold_for_triangulation = 4 # in degrees TODO: tune this parameter
 angle_threshold_for_triangulation *= np.pi / 180 # convert to radians
 verbose = False
 
@@ -32,6 +32,8 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
         n_promoted_keypoints: number of promoted keypoints
     """
 
+    debug_dict = {}
+
     # ------------------------------------------------------ 4.1: Associating keypoints
     # track keypoints from previous frame to current frame with KLT (i.e. pixel coordinates)
     keypoints_prev = S_prev["keypoints"] # dim: Kx2
@@ -41,7 +43,7 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
     # filter valid keypoints (note: status is set to 1 if the flow for the corresponding features has been found)
     keypoints = np.expand_dims(keypoints, 1)[status == 1] # dim: Kx2
     landmarks = np.expand_dims(landmarks, 1)[status == 1] # dim: Kx3
-    n_tracked_keypoints = keypoints.shape[0]
+    debug_dict["n_tracked_keypoints"] = keypoints.shape[0]
 
     # #################### DEBUG START ####################
     # if verbose:
@@ -84,6 +86,8 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
 
         # remove candidate keypoints that were not tracked successfully
         candidate_keypoints = np.expand_dims(candidate_keypoints, 1)[status == 1] # dim: Kx2
+        debug_dict["trackable_candidate_keypoints"] = candidate_keypoints.shape[0]
+        debug_dict["lost_candidates_at_KLT"] = candidate_keypoints_prev.shape[0] - candidate_keypoints.shape[0]
         S_prev["pose_at_first_observations"] = np.expand_dims(S_prev["pose_at_first_observations"], 1)[status == 1]
         S_prev["first_observations"] = np.expand_dims(S_prev["first_observations"], 1)[status == 1]
         S_prev["keypoint_tracker"] = np.expand_dims(S_prev["keypoint_tracker"], 1)[status == 1] + 1
@@ -91,6 +95,7 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
         # ------------------ Promote keypoints
         promotable_keypoints = candidate_keypoints[S_prev["keypoint_tracker"] > L_m]
         n_promoted_keypoints = promotable_keypoints.shape[0]
+        debug_dict["n_promoted_before_triangulation"] = n_promoted_keypoints
 
         # remove promotable keypoints from candidate list -> keypoints that can eventually not be promoted will be added again
         candidate_keypoints = candidate_keypoints[S_prev["keypoint_tracker"] <= L_m]
@@ -117,7 +122,10 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
 
             # filter keypoints that can be promoted (angle between bearing vectors is large enough)
             promoted_keypoints = promotable_keypoints[triangulate]
+            debug_dict["n_lost_candidates_at_angle_filtering"] = promotable_keypoints.shape[0] - promoted_keypoints.shape[0]
             n_promoted_keypoints = promoted_keypoints.shape[0]
+            debug_dict["n_promoted_after_angle_filter"] = n_promoted_keypoints
+
 
             # triangulate landmarks with least squares approximation
             promoted_keypoints_first_observations = promotable_keypoints_first_observations[triangulate]
@@ -134,14 +142,15 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
                 M1 = K @ T_CW_first_observation
                 landmark = cv2.triangulatePoints(projMatr1=M1, projMatr2=M2, projPoints1=promoted_keypoints_first_observations[i], projPoints2=promoted_keypoints[i])
                 landmark = (landmark / landmark[3])[:3].squeeze() # normalize homogeneous coordinates
-                if (landmark[2] > min_depth and landmark[2] < max_depth): # and (landmark[0] > min_width and landmark[0] < max_width)
+                if (landmark[2]-T_WC[2,3] > min_depth and landmark[2]-T_WC[2,3] < max_depth): # and (landmark[0] > min_width and landmark[0] < max_width)
                     promoted_landmarks[i, :] = landmark # convert landmarks to non-homogeneous coordinates
                 else:
                     promoted_landmarks[i, :] = np.nan
         
             mask = ~np.isnan(promoted_landmarks).any(axis=1)
             add_keypoints = promoted_keypoints[mask]
-            n_promoted_keypoints = add_keypoints.shape[0]
+            debug_dict["n_lost_candidates_at_cartesian_mask"] = promoted_keypoints.shape[0] - add_keypoints.shape[0]
+            debug_dict["n_promoted_keypoints"] = add_keypoints.shape[0]
             keypoints = np.vstack((keypoints, add_keypoints))
             add_landmarks = promoted_landmarks[mask]
             landmarks = np.vstack((landmarks, add_landmarks))
@@ -157,13 +166,23 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
             pose_at_first_observations = np.vstack((pose_at_first_observations, readd_pose_at_first_observations))
             keypoint_tracker = np.hstack((keypoint_tracker, readd_keypoint_tracker))
     
+        else:
+
+            debug_dict["n_promoted_keypoints"] = 0
+            debug_dict["n_lost_candidates_at_angle_filtering"] = 0
+            debug_dict["n_promoted_after_angle_filter"] = 0
+            debug_dict["n_lost_candidates_at_cartesian_mask"] = 0
+
     else:
         candidate_keypoints = np.empty((0, 2), dtype=np.float32)
         first_observations = np.empty((0, 2), dtype=np.float32)
         pose_at_first_observations = np.empty((0, 12), dtype=np.float32)
         keypoint_tracker = np.empty(0, dtype=np.int64)
-        n_promoted_keypoints = 0
-
+        debug_dict["n_promoted_keypoints"] = 0
+        debug_dict["n_promoted_keypoints"] = 0
+        debug_dict["n_lost_candidates_at_angle_filtering"] = 0
+        debug_dict["n_promoted_after_angle_filter"] = 0
+        debug_dict["n_lost_candidates_at_cartesian_mask"] = 0
     # ------------------ Extract new keypoints and remove duplicates
     # OPTION 1: goodFeaturesToTrack
     new_candidate_keypoints = cv2.goodFeaturesToTrack(img, maxCorners=800, qualityLevel=0.1, minDistance=8, mask=None, blockSize=9, useHarrisDetector=True, k=0.08).squeeze() # dim: Kx2
@@ -190,10 +209,10 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
     # new_candidate_keypoints = selectKeypoints(harris_scores, num_keypoints, nonmaximum_supression_radius).T
 
     # remove duplicates in keypoints and candidate keypoints
-    distance_threshold = 1 # TODO: tune this parameter
-    is_duplicate_kp = np.any(np.linalg.norm(new_candidate_keypoints[:, None, :] - keypoints[None, :, :], axis=2) <= distance_threshold, axis=1) # note: for broadcasting, dimensions have to match or be one
+    distance_threshold = 0.01 # TODO: tune this parameter
+    is_duplicate_kp = np.any(np.linalg.norm(new_candidate_keypoints[:, None, :] - keypoints[None, :, :], axis=2) < distance_threshold, axis=1) # note: for broadcasting, dimensions have to match or be one
     new_candidate_keypoints = new_candidate_keypoints[~is_duplicate_kp]
-    is_duplicate_ckp = np.any(np.linalg.norm(new_candidate_keypoints[:, None, :] - candidate_keypoints[None, :, :], axis=2) <= distance_threshold, axis=1)
+    is_duplicate_ckp = np.any(np.linalg.norm(new_candidate_keypoints[:, None, :] - candidate_keypoints[None, :, :], axis=2) < distance_threshold, axis=1)
     new_candidate_keypoints = new_candidate_keypoints[~is_duplicate_ckp]
 
     # update state
@@ -211,4 +230,4 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
             "keypoint_tracker": keypoint_tracker # dim: M with M = # candidate keypoints
         }
 
-    return S, T_WC, n_tracked_keypoints, n_promoted_keypoints
+    return S, T_WC, debug_dict
