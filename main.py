@@ -120,17 +120,29 @@ n_lost_candidates_at_angle_filtering = []
 n_lost_candidates_at_cartesian_mask = []
 
 # Visualisation of VO pipeline
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 7))
 
 ax1.set_title('Keypoints')  # Set the title of the figure
 img_plot = ax1.imshow(img0, cmap='gray')
-keypoints_plot, = ax1.plot([], [], 'yo', markersize=5, label='Keypoints')
-candidate_keypoints_plot, = ax1.plot([], [], 'bo', markersize=5, label='Candidate Keypoints')
+# keypoints_plot, = ax1.plot([], [], 'yo', markersize=5, label='Keypoints')
+# candidate_keypoints_plot, = ax1.plot([], [], 'bo', markersize=5, label='Candidate Keypoints')
+untrackable_keypoints_plot, = ax1.plot([], [], 'ro', markersize=3, label='Untrackable KP')
+trackable_outlier_keypoints_plot, = ax1.plot([], [], 'o', color='orange', markersize=3, label='Trackable outlier KP')
+trackable_keypoints_plot, = ax1.plot([], [], 'go', markersize=3, label='Trackable KP')
+
+untrackable_candidate_keypoints_plot, = ax1.plot([], [], 'rx', markersize=3, label='Untrackable CKP')
+trackable_unpromotable_candidate_keypoints_plot, = ax1.plot([], [], 'bo', markersize=3, label='Trackable unpromotable CKP')
+untriangulatable_promotable_candidate_keypoints_plot, = ax1.plot([], [], 'cx', markersize=3, label='Untriangulatable promotable CKP')
+promotable_candidate_keypoints_outside_thresholds_plot, = ax1.plot([], [], 'mx', markersize=3, label='Promotable CKP outside_thresholds')
+promoted_candidate_keypoints_plot, = ax1.plot([], [], 'y*', markersize=3, label=' Promoted CKP')
+new_candidate_keypoints_plot, = ax1.plot([], [], 'b+', markersize=3, label=' New CKP')
+candidate_keypoints_duplicate_with_keypoints_plot, = ax1.plot([], [], 'r^', markersize=2, label='CKP duplicate w KP')
+candidate_keypoints_duplicate_with_prev_candidate_keypoints_plot, = ax1.plot([], [], 'rv', markersize=2, label=' CKP duplicate w prev CKP')
 ax1.legend()
 
 ax2.set_title('Estimated Trajectory')
-landmarks_plot, = ax2.plot([], [], 'ro', markersize=5, label='Landmarks')
-trajectory_plot, = ax2.plot([], [], 'b-o', markersize=5, label='Trajectory')
+landmarks_plot, = ax2.plot([], [], 'ro', markersize=3, label='Landmarks')
+trajectory_plot, = ax2.plot([], [], 'b-o', markersize=3, label='Trajectory')
 ax2.legend()
 
 for index, i in enumerate(range_frames):
@@ -159,14 +171,42 @@ for index, i in enumerate(range_frames):
 
     # Update the plots
     img_plot.set_data(img)
-    keypoints_plot.set_data(S["keypoints"][:, 0], S["keypoints"][:, 1])
+    untrackable_keypoints_plot.set_data(debug_dict["untrackable_keypoints"][:, 0], debug_dict["untrackable_keypoints"][:, 1])
+    trackable_outlier_keypoints_plot.set_data(debug_dict["trackable_outlier_keypoints"][:, 0], debug_dict["trackable_outlier_keypoints"][:, 1])
+    trackable_keypoints_plot.set_data(debug_dict["trackable_keypoints"][:, 0], debug_dict["trackable_keypoints"][:, 1])
     if S["candidate_keypoints"] is not None:
-        candidate_keypoints_plot.set_data(S["candidate_keypoints"][:, 0], S["candidate_keypoints"][:, 1])
+        untrackable_candidate_keypoints_plot.set_data(debug_dict["untrackable_candidate_keypoints"][:, 0], debug_dict["untrackable_candidate_keypoints"][:, 1])
+        trackable_unpromotable_candidate_keypoints_plot.set_data(debug_dict["trackable_unpromotable_candidate_keypoints"][:, 0], debug_dict["trackable_unpromotable_candidate_keypoints"][:, 1])
+        untriangulatable_promotable_candidate_keypoints_plot.set_data(debug_dict["untriangulatable_promotable_candidate_keypoints"][:, 0], debug_dict["untriangulatable_promotable_candidate_keypoints"][:, 1])
+        promotable_candidate_keypoints_outside_thresholds_plot.set_data(debug_dict["promotable_candidate_keypoints_outside_thresholds"][:, 0], debug_dict["promotable_candidate_keypoints_outside_thresholds"][:, 1])
+        promoted_candidate_keypoints_plot.set_data(debug_dict["promoted_candidate_keypoints"][:, 0], debug_dict["promoted_candidate_keypoints"][:, 1])
+        new_candidate_keypoints_plot.set_data(debug_dict["new_candidate_keypoints"][:, 0], debug_dict["new_candidate_keypoints"][:, 1])
+        candidate_keypoints_duplicate_with_keypoints_plot.set_data(debug_dict["candidate_keypoints_duplicate_with_keypoints"][:, 0], debug_dict["candidate_keypoints_duplicate_with_keypoints"][:, 1])
+        candidate_keypoints_duplicate_with_prev_candidate_keypoints_plot.set_data(debug_dict["candidate_keypoints_duplicate_with_prev_candidate_keypoints"][:, 0], debug_dict["candidate_keypoints_duplicate_with_prev_candidate_keypoints"][:, 1])
     else:
-        candidate_keypoints_plot.set_data([], [])
-    keypoints_plot.set_label(f'Keypoints: {len(S["keypoints"])}')
-    candidate_keypoints_plot.set_label(f'Candidate Keypoints: {len(S["candidate_keypoints"]) if S["candidate_keypoints"] is not None else 0}')
-    ax1.legend()
+        untrackable_candidate_keypoints_plot.set_data([], [])
+        trackable_unpromotable_candidate_keypoints_plot.set_data([], [])
+        untriangulatable_promotable_candidate_keypoints_plot.set_data([], [])
+        promotable_candidate_keypoints_outside_thresholds_plot.set_data([], [])
+        promoted_candidate_keypoints_plot.set_data([], [])
+        new_candidate_keypoints_plot.set_data([], [])
+        candidate_keypoints_duplicate_with_keypoints_plot.set_data([], [])
+        candidate_keypoints_duplicate_with_prev_candidate_keypoints_plot.set_data([], [])
+
+    untrackable_keypoints_plot.set_label(f'Untrackable KP: {len(debug_dict["untrackable_keypoints"])}')
+    trackable_outlier_keypoints_plot.set_label(f'Trackable outlier KP: {len(debug_dict["trackable_outlier_keypoints"])}')
+    trackable_keypoints_plot.set_label(f'Trackable KP: {len(debug_dict["trackable_keypoints"])}')
+    untrackable_candidate_keypoints_plot.set_label(f'Untrackable CKP: {len(debug_dict["untrackable_candidate_keypoints"])} (total #CKP:{len(S["candidate_keypoints"]) if S["candidate_keypoints"] is not None else 0})')
+
+    trackable_unpromotable_candidate_keypoints_plot.set_label(f'Trackable unpromotable CKP: {len(debug_dict["trackable_unpromotable_candidate_keypoints"])}')
+    untriangulatable_promotable_candidate_keypoints_plot.set_label(f'Untriangulatable promotable CKP: {len(debug_dict["untriangulatable_promotable_candidate_keypoints"])}')
+    promotable_candidate_keypoints_outside_thresholds_plot.set_label(f'Promotable CKP outside_thresholds: {len(debug_dict["promotable_candidate_keypoints_outside_thresholds"])}')
+    promoted_candidate_keypoints_plot.set_label(f'Promoted CKP: {len(debug_dict["promoted_candidate_keypoints"])}')
+    new_candidate_keypoints_plot.set_label(f'New CKP: {len(debug_dict["new_candidate_keypoints"])}')
+    candidate_keypoints_duplicate_with_keypoints_plot.set_label(f'CKP duplicate w KP: {len(debug_dict["candidate_keypoints_duplicate_with_keypoints"])}')
+    candidate_keypoints_duplicate_with_prev_candidate_keypoints_plot.set_label(f'CKP duplicate w prev CKP: {len(debug_dict["candidate_keypoints_duplicate_with_prev_candidate_keypoints"])}')
+        
+    ax1.legend(loc='lower center', bbox_to_anchor=(0.5, -1.1), ncol=2, fancybox=True, shadow=True)
 
     landmarks_plot.set_data(S["landmarks"][:, 0], S["landmarks"][:, 2])
     trajectory_plot.set_data(trajectory[0, :index+1], trajectory[2, :index+1])
@@ -174,9 +214,11 @@ for index, i in enumerate(range_frames):
     combined_z = np.concatenate((trajectory[2, :index+1], S["landmarks"][:, 2]))
     ax2.set_xlim(np.min(combined_x) - 1, np.max(combined_x) + 1)
     ax2.set_ylim(np.min(combined_z) - 1, np.max(combined_z) + 1)
-
+    # fig.subplots_adjust(right=0.5)
     plt.pause(0.01)
 
+
+# plt.close()
 fig, axs = plt.subplots(2, 1, figsize=(7, 7))
 axs[0].title.set_text('Trajectory')
 axs[0].plot(trajectory[0, :], trajectory[2, :])
