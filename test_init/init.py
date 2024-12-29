@@ -4,7 +4,6 @@ import cv2
 import matplotlib.pyplot as plt
 from scipy.stats import zscore
 
-
 from test_init.init_fct import harris, selectKeypoints
 from test_init.init_fct import describeKeypoints, matchDescriptors, linearTriangulation
 from test_init.init_fct import plotMatches, decomposeEssentialMatrix, disambiguateRelativePose

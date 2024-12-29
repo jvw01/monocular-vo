@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from test_init.init import initialization
 
 # Setup
-dataset = 2 # 0: KITTI, 1: Malaga, 2: parking
+dataset = 0 # 0: KITTI, 1: Malaga, 2: parking
 parking_path = "" 
 malaga_path = ""
 kitti_path = ""

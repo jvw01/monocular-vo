@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 from scipy import signal
 from scipy.spatial.distance import cdist
 
-
 def harris(img, patch_size, kappa):
     sobel_para = np.array([-1, 0, 1])
     sobel_orth = np.array([1, 2, 1])
