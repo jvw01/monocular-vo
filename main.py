@@ -3,11 +3,13 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 from process_frame import processFrame
+import matplotlib.transforms as transforms
 # from bootstrap_vo import bootstrap_vo
 # from continuous_vo import continuous_vo
 
 # boolean variable to determine if we are bootstrapping or not
 bootstrap = False
+low_keypoint_plot_threshold = 100
 
 # Setup
 dataset = 0 # 0: KITTI, 1: Malaga, 2: parking
@@ -112,11 +114,15 @@ else:
     range_frames = range(1, 100) # Hardcode this because we don't have the rest of the dataset available right now
 img_prev = img0
 
-trajectory = np.zeros((3, len(range_frames)+1))
+trajectory = np.zeros((3, len(range_frames)))
+trajectory_points_with_low_keypoints = []
+indices_with_low_keypoints = []
 n_tracked_keypoints_list = []
+n_promotable_keypoints_before_angle_filtering_list = []
 n_promoted_keypoints_list = []
 n_lost_candidates_at_angle_filtering = []
 n_lost_candidates_at_cartesian_mask = []
+n_new_candidate_keypoints_list = []
 
 # Visualisation of VO pipeline
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 7))
@@ -142,6 +148,7 @@ ax1.legend()
 ax2.set_title('Estimated Trajectory')
 landmarks_plot, = ax2.plot([], [], 'ro', markersize=3, label='Landmarks')
 trajectory_plot, = ax2.plot([], [], 'b-o', markersize=3, label='Trajectory')
+trajectory_points_with_low_keypoints_plot, = ax2.plot([], [], "o", color="orange", markersize=5, label=f'low keypoints (<{low_keypoint_plot_threshold})', linestyle='None')
 ax2.legend()
 
 for index, i in enumerate(range_frames):
@@ -163,9 +170,11 @@ for index, i in enumerate(range_frames):
     S_prev = S
     trajectory[:, index] = T_WC[:, 3]
     n_tracked_keypoints_list += [debug_dict["n_tracked_keypoints"]]
+    n_promotable_keypoints_before_angle_filtering_list += [debug_dict["n_promotable_keypoints_before_angle_filtering"]]
     n_promoted_keypoints_list += [debug_dict["n_promoted_keypoints"]]
     n_lost_candidates_at_angle_filtering += [debug_dict["n_lost_candidates_at_angle_filtering"]]
     n_lost_candidates_at_cartesian_mask += [debug_dict["n_lost_candidates_at_cartesian_mask"]]
+    n_new_candidate_keypoints_list += [len(debug_dict["new_candidate_keypoints"])]
 
 
     # Update the plots
@@ -207,8 +216,13 @@ for index, i in enumerate(range_frames):
         
     ax1.legend(loc='lower center', bbox_to_anchor=(0.5, -1.1), ncol=2, fancybox=True, shadow=True)
 
+    if S["keypoints"].shape[0] < low_keypoint_plot_threshold:
+        trajectory_points_with_low_keypoints += [T_WC[:, 3]]
+        indices_with_low_keypoints += [i]
+
     landmarks_plot.set_data(S["landmarks"][:, 0], S["landmarks"][:, 2])
     trajectory_plot.set_data(trajectory[0, :index+1], trajectory[2, :index+1])
+    trajectory_points_with_low_keypoints_plot.set_data([item[0] for item in trajectory_points_with_low_keypoints], [item[2] for item in trajectory_points_with_low_keypoints])
     combined_x = np.concatenate((trajectory[0, :index+1], S["landmarks"][:, 0]))
     combined_z = np.concatenate((trajectory[2, :index+1], S["landmarks"][:, 2]))
     ax2.set_xlim(np.min(combined_x) - 1, np.max(combined_x) + 1)
@@ -220,12 +234,18 @@ for index, i in enumerate(range_frames):
 # plt.close()
 fig, axs = plt.subplots(2, 1, figsize=(7, 7))
 axs[0].title.set_text('Trajectory')
-axs[0].plot(trajectory[0, :], trajectory[2, :])
+axs[0].plot(trajectory[0, :], trajectory[2, :], 'b-o', markersize=3)
+axs[0].plot([item[0] for item in trajectory_points_with_low_keypoints], [item[2] for item in trajectory_points_with_low_keypoints], "o", color="orange", markersize=5, label=f'low keypoints (<{low_keypoint_plot_threshold})', linestyle='None')
+axs[0].axis("equal")
 axs[1].title.set_text('# Tracked keypoints at each frame')
 axs[1].plot(n_tracked_keypoints_list, label="n tracked keypoints")
-axs[1].plot(n_promoted_keypoints_list, label="n promoted keypoints")
+axs[1].plot(n_promotable_keypoints_before_angle_filtering_list, label="n_promotable_keypoints_before_angle_filtering")
 axs[1].plot(n_lost_candidates_at_angle_filtering, label="n_lost_candidates_at_angle_filtering")
 axs[1].plot(n_lost_candidates_at_cartesian_mask, label="n_lost_candidates_at_cartesian_mask")
+axs[1].plot(n_promoted_keypoints_list, label="n promoted keypoints")
+axs[1].plot(n_new_candidate_keypoints_list, label="n new candidate keypoints")
+trans = transforms.blended_transform_factory(axs[1].transData, axs[1].transAxes)
+axs[1].vlines(indices_with_low_keypoints, ymin=0, ymax=1, linewidth=1, color="orange", alpha=0.3, label=f"low keypoints (<{low_keypoint_plot_threshold})", zorder=-1, transform=trans)
 axs[1].legend()
 
 plt.tight_layout()
