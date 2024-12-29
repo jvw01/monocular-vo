@@ -10,6 +10,10 @@ L_m = 2
 min_depth = 1 # TODO: tune this parameter
 max_depth = 80 # TODO: tune this parameter
 angle_threshold_for_triangulation = 5 # in degrees TODO: tune this parameter
+lk_params = dict(winSize = (21, 21), 
+                  maxLevel = 4,
+                  criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 
+                              20, 0.03)) # TODO: parameters for Lucas-Kanade optical flow
 angle_threshold_for_triangulation *= np.pi / 180 # convert to radians
 verbose = False
 
@@ -43,27 +47,6 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
     keypoints = np.expand_dims(keypoints, 1)[status == 1] # dim: Kx2
     landmarks = np.expand_dims(landmarks, 1)[status == 1] # dim: Kx3
     debug_dict["n_tracked_keypoints"] = keypoints.shape[0]
-
-    # #################### DEBUG START ####################
-    # if verbose:
-    #     fig, axs = plt.subplots(2, 1, figsize=(7, 7))
-    #     # Plot the previous image with previous keypoints
-    #     axs[0].imshow(img_prev, cmap='gray')
-    #     axs[0].scatter(keypoints_prev[:, 0], keypoints_prev[:, 1], s=5)
-    #     axs[0].set_title('Keypoints in previous image')
-    #     axs[0].axis('equal')
-
-    #     # Plot the current image with tracked keypoints
-    #     axs[1].imshow(img, cmap='gray')
-    #     axs[1].scatter(keypoints[:, 0], keypoints[:, 1], s=5)
-    #     axs[1].set_title('Keypoints tracked')
-    #     axs[1].axis('equal')
-
-    #     plt.tight_layout()
-    #     plt.show(block=False)
-    #     plt.pause(2)
-    #     plt.close()
-    # #################### DEBUG END ####################
 
     # ------------------------------------------------------ 4.2: Estimating current pose
     # extract the pose using P3P
@@ -132,7 +115,6 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
             debug_dict["n_lost_candidates_at_angle_filtering"] = promotable_keypoints.shape[0] - promotable_keypoints_after_angle_threshold.shape[0]
             n_promoted_keypoints = promotable_keypoints_after_angle_threshold.shape[0]
             debug_dict["n_promoted_after_angle_filter"] = n_promoted_keypoints
-
 
             # triangulate landmarks with least squares approximation
             promoted_keypoints_first_observations = promotable_keypoints_first_observations[triangulate]
@@ -210,7 +192,7 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
     # if verbose:
     #     # Plot the current image with new keypoints
     #     plt.imshow(img, cmap='gray')
-    #     plt.scatter(new_candidate_keypoints.T[0, :], new_candidate_keypoints.T[1, :], s=5)
+    #     plt.scatter(new_candidate_keypoints[:, 0], new_candidate_keypoints[:, 1], s=5)
     #     plt.title('New Keypoints')
     #     plt.axis('equal')
 

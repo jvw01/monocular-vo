@@ -90,10 +90,9 @@ else:
         p_W_landmarks = np.loadtxt(os.path.join(data_VO_path, 'data_VO/p_W_landmarks.txt'), dtype=np.float32)
         img0 = cv2.imread(os.path.join(data_VO_path, f"data_VO/000000.png"), cv2.IMREAD_GRAYSCALE)
         img1 = cv2.imread(os.path.join(data_VO_path, f"data_VO/000001.png"), cv2.IMREAD_GRAYSCALE)
-        key_points = key_points.T
-        # Swap columns of keypoints
-        key_points[[1, 0], :] = key_points[[0, 1], :]
-        key_points = key_points.T
+        # # Swap columns of keypoints
+        key_points[:, [1, 0]] = key_points[:, [0, 1]]
+
         S_prev = {
                     "keypoints": key_points, # dim: Kx2
                     "landmarks": p_W_landmarks, # dim: Kx3
