@@ -61,8 +61,9 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
     landmarks = landmarks[inliers].squeeze() # dim: Kx3
 
     rotation_matrix_CW, _ = cv2.Rodrigues(rvec_CW)
+
     rotation_matrix_WC = rotation_matrix_CW.T.astype(np.float32)
-    tvec_WC = -tvec_CW.astype(np.float32)
+    tvec_WC = -rotation_matrix_WC @ tvec_CW.astype(np.float32)
     T_WC = np.hstack((rotation_matrix_WC, tvec_WC)) # dim: 3x4
 
     # ------------------------------------------------------ 4.3: Triangulating new landmarks
@@ -106,7 +107,7 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
             R_CC = T_WC[:3,:3].T @ T_WC_first_observation[:,:3,:3] # rotation matrix from first camera frame to current camera frame
             R_CC_transposed = np.transpose(R_CC, axes=(0, 2, 1))
             v1 = (np.matmul(R_CC_transposed, K_inv) @ (np.hstack((promotable_keypoints_first_observations, np.ones((n_promotable_keypoints, 1)))))[:,:,None]).squeeze().T # v1 = R⁽⁻¹⁾ * K⁽⁻¹⁾ * [u1; v1; 1]; dim 3xK
-            v2 = K_inv @ np.vstack((promotable_keypoints.T, np.ones((1, n_promotable_keypoints)))) # v2 = K⁽⁻¹⁾ * [u2; v2; 1] (no need for rotation since we are already in correct frame); dim 3xK
+            v2 = K_inv @ np.hstack((promotable_keypoints, np.ones((n_promotable_keypoints,1)))).T # v2 = K⁽⁻¹⁾ * [u2; v2; 1] (no need for rotation since we are already in correct frame); dim 3xK
             alpha = np.arccos(np.sum(v1 * v2, axis=0) / (np.linalg.norm(v1, axis=0) * np.linalg.norm(v2, axis=0))) # angle between bearing vectors in radians
             triangulate = alpha > angle_threshold_for_triangulation # mask that indicates if the angle between the bearing vectors is large enough for triangulation
 
@@ -138,7 +139,10 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
                 
                 promoted_landmarks = np.empty((n_promoted_keypoints, 3), dtype=np.float32)
                 # T_CW = np.linalg.inv(np.vstack((T_WC, np.array([0,0,0,1]))))[:3, :] # transformation matrix from world to camera frame
-                T_CW = np.hstack((T_WC[:3, :3].T, -T_WC[:3, 3][:, None]))
+                # T_CW = np.hstack((T_WC[:3, :3].T, -T_WC[:3, 3][:, None]))
+                R_CW = T_WC[:3, :3].T
+                t_CW = -R_CW @ T_WC[:3, 3]
+                T_CW = np.hstack((R_CW, t_CW[:, None]))
                 M2 = K @ T_CW
 
                 # Loop through all groups of candidate keypoints (groups were found in the same original image and hence can be triangulated together)
@@ -157,7 +161,10 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
 
                     assert np.all(T_WC_first_observation_KP_group == T_WC_first_observation_KP_group[0]), "The T_WC_first_observation matrices are not the same for all keypoints to be promoted"
 
-                    T_CW_first_observation = np.hstack((T_WC_first_observation_KP_group[0, :3, :3].T, -T_WC_first_observation_KP_group[0, :3, 3][:, None]))
+                    # T_CW_first_observation = np.hstack((T_WC_first_observation_KP_group[0, :3, :3].T, -T_WC_first_observation_KP_group[0, :3, 3][:, None]))
+                    R_CW_first_observation = T_WC_first_observation_KP_group[0, :3, :3].T
+                    t_CW_first_observation = -R_CW_first_observation @ T_WC_first_observation_KP_group[0, :3, 3][:, None]
+                    T_CW_first_observation = np.hstack((R_CW_first_observation, t_CW_first_observation))
                     M1 = K @ T_CW_first_observation
                     promoted_landmarks = cv2.triangulatePoints(projMatr1=M1, projMatr2=M2, projPoints1=promoted_keypoints_first_observations_KP_group.T, projPoints2=promotable_keypoints_after_angle_threshold_KP_group.T)
                     promoted_landmarks = (promoted_landmarks / promoted_landmarks[3])[:3].squeeze() # normalize homogeneous coordinates
@@ -236,7 +243,7 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
 
     # ------------------ Extract new keypoints and remove duplicates
     # OPTION 1: goodFeaturesToTrack
-    new_candidate_keypoints = cv2.goodFeaturesToTrack(img, maxCorners=500, qualityLevel=0.01, minDistance=10, mask=None, blockSize=9, useHarrisDetector=True).squeeze() # dim: Kx2
+    new_candidate_keypoints = cv2.goodFeaturesToTrack(img, maxCorners=800, qualityLevel=0.01, minDistance=10, mask=None, blockSize=9, useHarrisDetector=True).squeeze() # dim: Kx2
     # #################### DEBUG START ####################
     # if verbose:
     #     # Plot the current image with new keypoints
