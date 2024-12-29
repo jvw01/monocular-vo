@@ -142,6 +142,10 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
                 M2 = K @ T_CW
 
                 # Loop through all groups of candidate keypoints (groups were found in the same original image and hence can be triangulated together)
+                debug_dict["n_promoted_keypoints"] = 0
+                debug_dict["promotable_candidate_keypoints_outside_thresholds"] = np.empty((0, 2), dtype=np.float32)
+                debug_dict["promoted_candidate_keypoints"] = np.empty((0, 2), dtype=np.float32)
+                debug_dict["n_lost_candidates_at_cartesian_mask"] = 0
                 for keypoint_group_tracker_number in np.unique(promoted_keypoint_tracker):
 
                     keypoint_group_mask = promoted_keypoint_tracker == keypoint_group_tracker_number
@@ -177,14 +181,11 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
                     # mask = ~np.isnan(promoted_landmarks).any(axis=1)
 
                     add_keypoints = promotable_keypoints_after_angle_threshold_KP_group[mask]
-                    if len(promotable_keypoints_after_angle_threshold_KP_group[~mask].shape) == 3:
-                        # If the mask is only a simple bool (see above) and that bool is True (the single CKP within thresholds), the sliced array is malformed -> overwrite
-                        debug_dict["promotable_candidate_keypoints_outside_thresholds"] = np.empty((0, 2), dtype=np.float32)
-                    else:
-                        debug_dict["promotable_candidate_keypoints_outside_thresholds"] = promotable_keypoints_after_angle_threshold_KP_group[~mask]
-                    debug_dict["promoted_candidate_keypoints"] = add_keypoints
-                    debug_dict["n_lost_candidates_at_cartesian_mask"] = promotable_keypoints_after_angle_threshold_KP_group.shape[0] - add_keypoints.shape[0]
-                    debug_dict["n_promoted_keypoints"] = add_keypoints.shape[0]
+                    
+                    debug_dict["promotable_candidate_keypoints_outside_thresholds"] = np.vstack((debug_dict["promotable_candidate_keypoints_outside_thresholds"], promotable_keypoints_after_angle_threshold_KP_group[~mask]))
+                    debug_dict["promoted_candidate_keypoints"] = np.vstack((debug_dict["promoted_candidate_keypoints"], add_keypoints))
+                    debug_dict["n_lost_candidates_at_cartesian_mask"] += promotable_keypoints_after_angle_threshold_KP_group.shape[0] - add_keypoints.shape[0]
+                    debug_dict["n_promoted_keypoints"] += add_keypoints.shape[0]
                     # Promote the keypoints
                     keypoints = np.vstack((keypoints, add_keypoints))
                     add_landmarks = promoted_landmarks.T[mask]
