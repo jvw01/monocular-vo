@@ -13,9 +13,9 @@ lk_params = dict(winSize = (21, 21),
                   maxLevel = 4,
                   criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 
                               20, 0.03)) # TODO: parameters for Lucas-Kanade optical flow
-angle_threshold_for_triangulation = 3 # in degrees TODO: tune this parameter
+angle_threshold_for_triangulation = 4 # in degrees TODO: tune this parameter
 angle_threshold_for_triangulation *= np.pi / 180 # convert to radians
-distance_threshold = 2 # TODO: tune this parameter # Threshold for sorting out duplicate new keypoints
+distance_threshold = 3 # TODO: tune this parameter # Threshold for sorting out duplicate new keypoints
 verbose = False
 
 # TODO:
@@ -116,6 +116,18 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
             debug_dict["n_lost_candidates_at_angle_filtering"] = promotable_keypoints.shape[0] - promotable_keypoints_after_angle_threshold.shape[0]
             n_promoted_keypoints = promotable_keypoints_after_angle_threshold.shape[0]
             debug_dict["n_promoted_after_angle_filter"] = n_promoted_keypoints
+
+            # Re-add unpromotable keypoints due to angle threshold (the angle might increase in next frames, and then they can be triangulated)
+            readd_keypoints = promotable_keypoints[~triangulate]
+            readd_first_observations = promotable_keypoints_first_observations[~triangulate]
+            readd_pose_at_first_observations = promotable_keypoints_initial_poses[~triangulate]
+            readd_keypoint_tracker = promotable_keypoints_tracker[~triangulate]
+
+            # add keypoints that cannot be promoted back to candidate list
+            candidate_keypoints = np.vstack((candidate_keypoints, readd_keypoints))
+            first_observations = np.vstack((first_observations, readd_first_observations))
+            pose_at_first_observations = np.vstack((pose_at_first_observations, readd_pose_at_first_observations))
+            keypoint_tracker = np.hstack((keypoint_tracker, readd_keypoint_tracker))
 
             if n_promoted_keypoints > 0:
                 # triangulate landmarks with least squares approximation

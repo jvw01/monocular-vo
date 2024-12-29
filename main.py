@@ -9,7 +9,7 @@ import matplotlib.transforms as transforms
 
 # boolean variable to determine if we are bootstrapping or not
 bootstrap = False
-low_keypoint_plot_threshold = 100
+low_keypoint_plot_threshold = 200
 
 # Setup
 dataset = 0 # 0: KITTI, 1: Malaga, 2: parking
