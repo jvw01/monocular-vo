@@ -32,12 +32,12 @@ def initialization(img0, img1, dataset, range_frames, left_images, K):
     nonmaximum_supression_radius = 8
     keypoints = selectKeypoints(harris_scores, num_keypoints, nonmaximum_supression_radius)
     print(keypoints)
-    plt.clf()
-    plt.close()
-    plt.imshow(img0, cmap='gray')
-    plt.plot(keypoints[1, :], keypoints[0, :], 'rx', linewidth=2)
-    plt.axis('off')
-    plt.show()
+    # plt.clf()
+    # plt.close()
+    # plt.imshow(img0, cmap='gray')
+    # plt.plot(keypoints[1, :], keypoints[0, :], 'rx', linewidth=2)
+    # plt.axis('off')
+    # plt.show()
 
     descriptor_radius = 9
     match_lambda = 4
@@ -126,48 +126,48 @@ def initialization(img0, img1, dataset, range_frames, left_images, K):
     
         
     # Part 5 - Match descriptors between all images
-    prev_desc = None
-    prev_kp = None
-    for i in range_frames:
-        if i > 2:
-            break
-        plt.clf()
-        if dataset == 0:
-            img = cv2.imread(os.path.join('data/kitti/05/image_0/', f"{i:06d}.png"), cv2.IMREAD_GRAYSCALE)
-        elif dataset == 1:
-            img = cv2.imread(os.path.join('data/malaga/malaga-urban-dataset-extract-07_rectified_800x600_Images/', left_images[i]), cv2.IMREAD_GRAYSCALE)
-        elif dataset == 2:
-            img = cv2.imread(os.path.join(f"data/parking/images/img_{i:05d}.png"), cv2.IMREAD_GRAYSCALE)
-        else:
-            raise AssertionError("Invalid dataset selection")
-        scores = harris(img, corner_patch_size, harris_kappa)
-        kp = selectKeypoints(scores, num_keypoints, nonmaximum_supression_radius)
-        desc = describeKeypoints(img, kp, descriptor_radius)
+    # prev_desc = None
+    # prev_kp = None
+    # for i in range_frames:
+    #     plt.clf()
+    #     if dataset == 0:
+    #         img = cv2.imread(os.path.join('data/kitti/05/image_0/', f"{i:06d}.png"), cv2.IMREAD_GRAYSCALE)
+    #     elif dataset == 1:
+    #         img = cv2.imread(os.path.join('data/malaga/malaga-urban-dataset-extract-07_rectified_800x600_Images/', left_images[i]), cv2.IMREAD_GRAYSCALE)
+    #     elif dataset == 2:
+    #         img = cv2.imread(os.path.join(f"data/parking/images/img_{i:05d}.png"), cv2.IMREAD_GRAYSCALE)
+    #     else:
+    #         raise AssertionError("Invalid dataset selection")
+    #     scores = harris(img, corner_patch_size, harris_kappa)
+    #     kp = selectKeypoints(scores, num_keypoints, nonmaximum_supression_radius)
+    #     desc = describeKeypoints(img, kp, descriptor_radius)
         
 
-        #if prev_desc is not None:
-        #    P = landmarks_3D (prev_desc, desc, K)
+    #     #if prev_desc is not None:
+    #     #    P = landmarks_3D (prev_desc, desc, K)
 
-        #fig, axs = plt.subplots(1, 2, figsize=(12, 6))
-        #ax1 = fig.add_subplot(121, projection='3d')
-        #ax1.scatter(P[0, :], P[1, :], P[2, :], marker='o')
-        #fig.delaxes(axs[1])  # Remove the default axes of the second subplot
-        #ax2 = fig.add_subplot(122)
-        #ax2.imshow(img, cmap='gray')
-        #ax2.plot(kp[1, :], kp[0, :], 'rx', linewidth=2)
-        #ax2.axis('off')
+    #     #fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+    #     #ax1 = fig.add_subplot(121, projection='3d')
+    #     #ax1.scatter(P[0, :], P[1, :], P[2, :], marker='o')
+    #     #fig.delaxes(axs[1])  # Remove the default axes of the second subplot
+    #     #ax2 = fig.add_subplot(122)
+    #     #ax2.imshow(img, cmap='gray')
+    #     #ax2.plot(kp[1, :], kp[0, :], 'rx', linewidth=2)
+    #     #ax2.axis('off')
     
-        plt.imshow(img, cmap='gray')
-        plt.plot(kp[1, :], kp[0, :], 'rx', linewidth=2)
-        plt.axis('off')
+    #     plt.imshow(img, cmap='gray')
+    #     plt.plot(kp[1, :], kp[0, :], 'rx', linewidth=2)
+    #     plt.axis('off')
 
-        if prev_desc is not None:
-            matches = matchDescriptors(desc, prev_desc, match_lambda)
-            plotMatches(matches, kp, prev_kp)
-        prev_kp = kp
-        prev_desc = desc
+    #     if prev_desc is not None:
+    #         matches = matchDescriptors(desc, prev_desc, match_lambda)
+    #         plotMatches(matches, kp, prev_kp)
+    #     prev_kp = kp
+    #     prev_desc = desc
         
-        plt.pause(0.1)
+    #     plt.pause(0.1)
+
+    return keypoints, P 
 
 
 def landmarks_3D (keypoints, keypoints_2, K ):
