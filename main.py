@@ -9,11 +9,11 @@ bootstrap = False # boolean variable to determine if we are bootstrapping or not
 low_keypoint_plot_threshold = 200
 
 # Setup
-dataset = 0 # 0: KITTI, 1: Malaga, 2: parking
+dataset = 3 # 0: KITTI, 1: Malaga, 2: parking, 3: test
 parking_path = "" #"data/parking/images/"
 malaga_path = "" #"data/malaga/Images/"
 kitti_path = "" #"data/kitti/image_0/"
-data_VO_path = "" # for testing purposes
+test_path = "" # for testing purposes
 
 params = {} # dict for passing parameters to processFrame
 
@@ -77,6 +77,24 @@ elif dataset == 2:
     params["angle_threshold_for_triangulation"] *= np.pi / 180 # convert to radians
     params["distance_threshold"] = 3 # threshold for sorting out duplicate new keypoints
 
+elif dataset == 3:
+    assert 'kitti_path' in locals()
+    last_frame = 100
+    K = np.array([
+        [718.856, 0, 607.1928],
+        [0, 718.856, 185.2157],
+        [0, 0, 1]
+    ])
+
+    # set parameters for VO pipeline (tuned)
+    params["K"] = K
+    params["L_m"] = 2
+    params["min_depth"] = 1
+    params["max_depth"] = 80
+    angle_threshold_for_triangulation = 4 # in degrees
+    params["angle_threshold_for_triangulation"] = angle_threshold_for_triangulation * np.pi / 180 # convert to radians
+    params["distance_threshold"] = 3 # threshold for sorting out duplicate new keypoints
+
 else:
     raise AssertionError("Invalid dataset selection")
 
@@ -115,11 +133,11 @@ if bootstrap:
 
 else:
     # Circumvent bootstrapping by loading precomputed bootstrapping data
-    if dataset == 0:
-        key_points = np.loadtxt(os.path.join(data_VO_path, 'data_VO/keypoints.txt'), dtype=np.float32) # note: cv2.calcOpticalFlowPyrLK expects float32
-        p_W_landmarks = np.loadtxt(os.path.join(data_VO_path, 'data_VO/p_W_landmarks.txt'), dtype=np.float32)
-        img0 = cv2.imread(os.path.join(data_VO_path, f"data_VO/000000.png"), cv2.IMREAD_GRAYSCALE)
-        img1 = cv2.imread(os.path.join(data_VO_path, f"data_VO/000001.png"), cv2.IMREAD_GRAYSCALE)
+    if dataset == 3:
+        key_points = np.loadtxt(os.path.join(test_path, 'test_data/keypoints.txt'), dtype=np.float32) # note: cv2.calcOpticalFlowPyrLK expects float32
+        p_W_landmarks = np.loadtxt(os.path.join(test_path, 'test_data/p_W_landmarks.txt'), dtype=np.float32)
+        img0 = cv2.imread(os.path.join(test_path, f"test_data/image_0/000000.png"), cv2.IMREAD_GRAYSCALE)
+        img1 = cv2.imread(os.path.join(test_path, f"test_data/image_0/000001.png"), cv2.IMREAD_GRAYSCALE)
         
         # Swap columns of keypoints
         key_points[:, [1, 0]] = key_points[:, [0, 1]]
@@ -190,7 +208,10 @@ for index, i in enumerate(range_frames):
                         left_images[i]), cv2.IMREAD_GRAYSCALE)
     elif dataset == 2:
         img = cv2.imread(os.path.join(parking_path, 
-                        f"data/parking/images/img_{i:05d}.png"), cv2.IMREAD_GRAYSCALE)  
+                        f"data/parking/images/img_{i:05d}.png"), cv2.IMREAD_GRAYSCALE)
+    elif dataset == 3:
+        img = cv2.imread(os.path.join(test_path, 'test_data/image_0/', f"{i:06d}.png"), cv2.IMREAD_GRAYSCALE)
+
     else:
         raise AssertionError("Invalid dataset selection")
     
@@ -204,7 +225,6 @@ for index, i in enumerate(range_frames):
     n_lost_candidates_at_angle_filtering += [debug_dict["n_lost_candidates_at_angle_filtering"]]
     n_lost_candidates_at_cartesian_mask += [debug_dict["n_lost_candidates_at_cartesian_mask"]]
     n_new_candidate_keypoints_list += [len(debug_dict["new_candidate_keypoints"])]
-
 
     # Update the plots
     img_plot.set_data(img)
