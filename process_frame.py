@@ -4,23 +4,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from harris import harris
 from select_keypoints import selectKeypoints
-# from scipy.spatial.transform import Rotation
 
-L_m = 2
-min_depth = 1 # TODO: tune this parameter
-max_depth = 80 # TODO: tune this parameter
-lk_params = dict(winSize = (21, 21), 
-                  maxLevel = 4,
-                  criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 
-                              20, 0.03)) # TODO: parameters for Lucas-Kanade optical flow
-angle_threshold_for_triangulation = 4 # in degrees TODO: tune this parameter
-angle_threshold_for_triangulation *= np.pi / 180 # convert to radians
-distance_threshold = 3 # TODO: tune this parameter # Threshold for sorting out duplicate new keypoints
 verbose = False
 
-# TODO:
-# - define input parameters of cv2 functions and not always use the default values
-def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndarray) -> tuple[dict, np.ndarray]:
+def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, params: dict) -> tuple[dict, np.ndarray]:
     """
     This function implements the continuous visual odometry pipeline in a Markovian way.
     Args:
@@ -34,7 +21,15 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, K: np.ndar
         n_tracked_keypoints: number of tracked keypoints
         n_promoted_keypoints: number of promoted keypoints
     """
+    # tuned parameters
+    K = params["K"]
+    L_m = params["L_m"]
+    min_depth = params["min_depth"]
+    max_depth = params["max_depth"]
+    angle_threshold_for_triangulation = params["angle_threshold_for_triangulation"]
+    distance_threshold = params["distance_threshold"]
 
+    # dict for visualization and debugging
     debug_dict = {}
 
     # ------------------------------------------------------ 4.1: Associating keypoints

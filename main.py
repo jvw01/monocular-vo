@@ -4,11 +4,8 @@ import cv2
 import matplotlib.pyplot as plt
 from process_frame import processFrame
 import matplotlib.transforms as transforms
-# from bootstrap_vo import bootstrap_vo
-# from continuous_vo import continuous_vo
 
-# boolean variable to determine if we are bootstrapping or not
-bootstrap = False
+bootstrap = False # boolean variable to determine if we are bootstrapping or not
 low_keypoint_plot_threshold = 200
 
 # Setup
@@ -17,6 +14,8 @@ parking_path = "" #"data/parking/images/"
 malaga_path = "" #"data/malaga/Images/"
 kitti_path = "" #"data/kitti/image_0/"
 data_VO_path = "" # for testing purposes
+
+params = {} # dict for passing parameters to processFrame
 
 if dataset == 0:
     assert 'kitti_path' in locals()
@@ -28,6 +27,16 @@ if dataset == 0:
         [0, 718.856, 185.2157],
         [0, 0, 1]
     ])
+
+    # set parameters for VO pipeline (tuned)
+    params["K"] = K
+    params["L_m"] = 2
+    params["min_depth"] = 1
+    params["max_depth"] = 80
+    angle_threshold_for_triangulation = 4 # in degrees
+    params["angle_threshold_for_triangulation"] = angle_threshold_for_triangulation * np.pi / 180 # convert to radians
+    params["distance_threshold"] = 3 # threshold for sorting out duplicate new keypoints
+
 elif dataset == 1:
     assert 'malaga_path' in locals()
     images = sorted(os.listdir(os.path.join(malaga_path, 
@@ -39,6 +48,16 @@ elif dataset == 1:
         [0, 621.18428, 309.05989],
         [0, 0, 1]
     ])
+
+    # set parameters for VO pipeline (TODO: tune)
+    params["K"] = K
+    params["L_m"] = 2
+    params["min_depth"] = 1
+    params["max_depth"] = 80
+    angle_threshold_for_triangulation = 4 # in degrees
+    params["angle_threshold_for_triangulation"] *= np.pi / 180 # convert to radians
+    params["distance_threshold"] = 3 # threshold for sorting out duplicate new keypoints
+
 elif dataset == 2:
     assert 'parking_path' in locals()
     last_frame = 598
@@ -48,6 +67,16 @@ elif dataset == 2:
     print(ground_truth)
     plt.plot(ground_truth[1],ground_truth[0])
     plt.show()
+
+    # set parameters for VO pipeline (TODO: tune)
+    params["K"] = K
+    params["L_m"] = 2
+    params["min_depth"] = 1
+    params["max_depth"] = 80
+    angle_threshold_for_triangulation = 4 # in degrees
+    params["angle_threshold_for_triangulation"] *= np.pi / 180 # convert to radians
+    params["distance_threshold"] = 3 # threshold for sorting out duplicate new keypoints
+
 else:
     raise AssertionError("Invalid dataset selection")
 
@@ -77,8 +106,8 @@ if bootstrap:
     
     # TODO: DO BOOTSTRAP ACTION HERE
     S_prev = {
-                "keypoints": key_points, # dim: 2xK
-                "landmarks": p_W_landmarks.T, # dim: 3xK
+                "keypoints": key_points, # dim: Kx2
+                "landmarks": p_W_landmarks, # dim: Kx3
                 "candidate_keypoints": None, # no candidate keypoints in the beginning
                 "first_observations": None, # no candidate keypoints in the beginning
                 "pose_at_first_observation": None # no candidate keypoints in the beginning
@@ -87,12 +116,12 @@ if bootstrap:
 else:
     # Circumvent bootstrapping by loading precomputed bootstrapping data
     if dataset == 0:
-        K = np.loadtxt(os.path.join("", "data_VO/K.txt")) # camera matrix
         key_points = np.loadtxt(os.path.join(data_VO_path, 'data_VO/keypoints.txt'), dtype=np.float32) # note: cv2.calcOpticalFlowPyrLK expects float32
         p_W_landmarks = np.loadtxt(os.path.join(data_VO_path, 'data_VO/p_W_landmarks.txt'), dtype=np.float32)
         img0 = cv2.imread(os.path.join(data_VO_path, f"data_VO/000000.png"), cv2.IMREAD_GRAYSCALE)
         img1 = cv2.imread(os.path.join(data_VO_path, f"data_VO/000001.png"), cv2.IMREAD_GRAYSCALE)
-        # # Swap columns of keypoints
+        
+        # Swap columns of keypoints
         key_points[:, [1, 0]] = key_points[:, [0, 1]]
 
         S_prev = {
@@ -103,10 +132,10 @@ else:
                     "pose_at_first_observation": None # no candidate keypoints in the beginning
                 }
     else:
-        raise NotImplementedError(f'Pre-computed bootstrapping values not available for this dataset with index {i}.')
+        raise NotImplementedError(f'Pre-computed bootstrapping values not available for this dataset.')
 
 
-# Continuous operation
+# CONTINUOUS OPERATION
 if bootstrap:
     range_frames = range(bootstrap_frames[1] + 1, last_frame + 1)
 else:
@@ -165,7 +194,7 @@ for index, i in enumerate(range_frames):
     else:
         raise AssertionError("Invalid dataset selection")
     
-    S, T_WC, debug_dict = processFrame(img, img_prev, S_prev, K)
+    S, T_WC, debug_dict = processFrame(img, img_prev, S_prev, params)
     img_prev = img
     S_prev = S
     trajectory[:, index] = T_WC[:, 3]
