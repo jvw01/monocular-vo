@@ -8,7 +8,7 @@ from test_init.init_fct import harris, selectKeypoints
 from test_init.init_fct import describeKeypoints, matchDescriptors, linearTriangulation
 from test_init.init_fct import plotMatches, decomposeEssentialMatrix, disambiguateRelativePose
 from test_init.init_fct import fundamentalEightPointNormalized
-from test_init.init_fct import ransacLocalization, drawCamera
+from test_init.init_fct import ransacLocalization, drawCamera, getMatchedKeypoints
 
 def initialization(img0, img1, dataset, range_frames, left_images, K):
     
@@ -51,8 +51,10 @@ def initialization(img0, img1, dataset, range_frames, left_images, K):
     descriptors_2 = describeKeypoints(img1, keypoints_2, descriptor_radius)
         
     matches = matchDescriptors(descriptors_2, descriptors, match_lambda)
+
+    keypoints_1_matched, keypoints_2_matched = getMatchedKeypoints(matches, keypoints, keypoints_2)
     
-    P = landmarks_3D(keypoints, keypoints_2, K)
+    P, R, T = landmarks_3D(keypoints_1_matched, keypoints_2_matched, K)
 
     plt.clf()
     plt.close()
@@ -98,12 +100,37 @@ def initialization(img0, img1, dataset, range_frames, left_images, K):
     #plt.tight_layout()
     #plt.axis('off')
     #plt.show()
+    
+    # Part 4.5: Plot reprojection error
+    print("3D Points, ", P)
+    # reprojected_points = K [R T] @ P
+    reprojection = K @ np.c_[R, T] @ P
+    print(K)
+    # reprojection = K @ np.eye(3,4) @ P
+    reprojection_cartesian = reprojection[:2] / reprojection[2]
+    # Plotting
+    plt.clf()
+    plt.close()
+    plt.imshow(img1, cmap='gray')
 
+    # Plot keypoints
+    plt.plot(keypoints[1, :], keypoints[0, :], 'rx', linewidth=2, label='Keypoints')
+
+    # Plot reprojected points
+    plt.plot(reprojection_cartesian[1, :], reprojection_cartesian[0, :], 'go', linewidth=2, label='Reprojected 3D points')
+
+    # Formatting the plot
+    plt.axis('off')
+    plt.legend()
+    plt.show()
+    
         
     # Part 5 - Match descriptors between all images
     prev_desc = None
     prev_kp = None
     for i in range_frames:
+        if i > 2:
+            break
         plt.clf()
         if dataset == 0:
             img = cv2.imread(os.path.join('data/kitti/05/image_0/', f"{i:06d}.png"), cv2.IMREAD_GRAYSCALE)
@@ -146,37 +173,68 @@ def initialization(img0, img1, dataset, range_frames, left_images, K):
 def landmarks_3D (keypoints, keypoints_2, K ):
     #With Cv2 function: to compare : doesn't give the same 
 
-    #F, mask = cv2.findFundamentalMat(keypoints.T, keypoints_2.T, method=cv2.FM_8POINT)
-    #print("F:\n",F)
-    #E, mask = cv2.findEssentialMat(keypoints.T, keypoints_2.T, K, method=cv2.RANSAC, prob=0.999, threshold=1.0)
-    #print("E:\n", E)
-    #_, R, T, _ = cv2.recoverPose(E, keypoints.T, keypoints_2.T, K)
-    #print(R, T)
-    #print(T)
-    
-    #Without Cv2 function 
-    keypoints1 = np.r_[keypoints, np.ones((1, keypoints.shape[1]))]
-    keypoints2 = np.r_[keypoints_2, np.ones((1, keypoints_2.shape[1]))]
-
-    F = fundamentalEightPointNormalized(keypoints1, keypoints2)
-    E = K.T @ F @ K
+    F, mask = cv2.findFundamentalMat(keypoints.T, keypoints_2.T, method=cv2.FM_8POINT)
+    print("F:\n",F)
+    E, mask = cv2.findEssentialMat(keypoints.T, keypoints_2.T, K, method=cv2.RANSAC, prob=0.999, threshold=1.0)
     print("E:\n", E)
-    R_1, u3 = decomposeEssentialMatrix(E)
-    R,T = disambiguateRelativePose(R_1, u3, keypoints1, keypoints2, K)
-    #print("Rotation Matrix R:", R)
-    #print("Translation Vector T, u3:", T)
+    _, R, T, _ = cv2.recoverPose(E, keypoints.T, keypoints_2.T, K)
+    print(R, T)
+    print(T)
+    
+    # #Without Cv2 function 
+    # keypoints1 = np.r_[keypoints, np.ones((1, keypoints.shape[1]))]
+    # keypoints2 = np.r_[keypoints_2, np.ones((1, keypoints_2.shape[1]))]
+
+    # F = fundamentalEightPointNormalized(keypoints1, keypoints2)
+    # E = K.T @ F @ K
+    # print("E:\n", E)
+    # R_1, u3 = decomposeEssentialMatrix(E)
+    # R,T = disambiguateRelativePose(R_1, u3, keypoints1, keypoints2, K)
+    # #print("Rotation Matrix R:", R)
+    # #print("Translation Vector T, u3:", T)
 
 
     M1 = np.dot(K, np.eye(3, 4))
     M2 = np.dot (K, np.c_[R, T])
-    P = linearTriangulation(keypoints1, keypoints2, M1, M2)
-    #P = cv2.triangulatePoints( M1, M2 ,keypoints.T, keypoints_2.T)
-    #print(P)
+    # P = linearTriangulation(keypoints1, keypoints2, M1, M2)
+    P = cv2.triangulatePoints( M1, M2 ,keypoints, keypoints_2)
+    print(P)
     
     #z-score remove outliers could use whatever else
-    points_3d = P[:3, :] 
-    z_scores = np.abs(zscore(points_3d, axis=1))
-    outliers = np.any(z_scores > 3, axis=0)
-    P = P[:, ~outliers]
+    # points_3d = P[:3, :] 
+    # z_scores = np.abs(zscore(points_3d, axis=1))
+    # outliers = np.any(z_scores > 3, axis=0)
+    # P = P[:, ~outliers]
     
-    return P
+    return P, R, T
+
+def landmarks_3D_with_masks(keypoints, keypoints_2, K):
+    F, mask_F = cv2.findFundamentalMat(keypoints.T, keypoints_2.T, method=cv2.FM_8POINT)
+    E, mask_E = cv2.findEssentialMat(keypoints.T, keypoints_2.T, K, method=cv2.RANSAC, prob=0.9, threshold=5.0)
+    
+    # Filter inliers for Essential
+    inliers_E = (mask_E.ravel() == 1)
+    pts1 = keypoints[:, inliers_E].T
+    pts2 = keypoints_2[:, inliers_E].T
+    # pts1 = keypoints.T
+    # pts2 = keypoints_2.T
+
+    print("points1 masked: ", pts1)
+    print("points2 masked: ", pts2)
+    
+    # Recover pose only with inliers
+    _, R, T, mask_pose = cv2.recoverPose(E, pts1, pts2, K, 5.0)
+    inliers_pose = (mask_pose.ravel() == 1)
+    # pts1 = pts1[inliers_pose, :]
+    # pts2 = pts2[inliers_pose, :]
+
+    
+    M1 = np.dot(K, np.eye(3, 4))
+    M2 = np.dot(K, np.c_[R, T])
+
+    print("points1 masked: ", pts1)
+    print("points2 masked: ", pts2)
+    
+    # Triangulate only the final inliers
+    P = cv2.triangulatePoints(M1, M2, pts1.T, pts2.T)
+    return P, R, T

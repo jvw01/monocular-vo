@@ -83,6 +83,30 @@ def plotMatches(matches, query_keypoints, database_keypoints):
     for i in range(x_from.shape[0]):
         plt.plot([y_from[i], y_to[i]], [x_from[i], x_to[i]], 'g-', linewidth=3)
 
+def getMatchedKeypoints(matches, query_keypoints, database_keypoints):
+    """
+    Given:
+      matches:           1D array, length == number of query keypoints. 
+                         For query keypoint i, matches[i] = j if it matches
+                         database keypoint j, or -1 if no match
+      query_keypoints:   shape (2, Q)  (2 rows: x,y; Q columns: keypoint i)
+      database_keypoints shape (2, D)
+
+    Returns:
+      matched_query:    shape (2, N), each column is a matched point in the query
+      matched_database: shape (2, N), the corresponding matched point in the database
+    """
+
+    # Indices in the query set for which we have a valid match
+    print("matches", matches)
+    query_indices = np.nonzero(matches >= 0)[0]
+    # The database indices each query index is matched to
+    db_indices = matches[query_indices]
+    # Build the matched keypoints in corresponding order
+    matched_query = query_keypoints[:, query_indices]     # shape (2, N)
+    matched_database = database_keypoints[:, db_indices]    # shape (2, N)
+
+    return matched_query, matched_database
 
 
 def fundamentalEightPointNormalized(p1, p2):
