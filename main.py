@@ -40,7 +40,7 @@ if dataset == 0:
 elif dataset == 1:
     assert 'malaga_path' in locals()
     images = sorted(os.listdir(os.path.join(malaga_path, 
-                'data/malaga-urban-dataset-extract-07/malaga-urban-dataset-extract-07_rectified_800x600_Images/')))
+                'data/malaga/malaga-urban-dataset-extract-07_rectified_800x600_Images/')))
     left_images = images[0::2]
     last_frame = len(left_images) 
     K = np.array([
@@ -91,10 +91,10 @@ if bootstrap:
                         f"{bootstrap_frames[1]:06d}.png"), cv2.IMREAD_GRAYSCALE)
     elif dataset == 1:
         img0 = cv2.imread(os.path.join(malaga_path, 
-                        'data/malaga-urban-dataset-extract-07/malaga-urban-dataset-extract-07_rectified_800x600_Images/', 
+                        'data/malaga/malaga-urban-dataset-extract-07_rectified_800x600_Images/', 
                         left_images[bootstrap_frames[0]]), cv2.IMREAD_GRAYSCALE)
         img1 = cv2.imread(os.path.join(malaga_path, 
-                        'data/malaga-urban-dataset-extract-07/malaga-urban-dataset-extract-07_rectified_800x600_Images/', 
+                        'data/malaga/malaga-urban-dataset-extract-07_rectified_800x600_Images/', 
                         left_images[bootstrap_frames[1]]), cv2.IMREAD_GRAYSCALE)
     elif dataset == 2:
         img0 = cv2.imread(os.path.join(parking_path, 
@@ -258,7 +258,6 @@ for index, i in enumerate(range_frames):
     ax2.set_ylim(np.min(combined_z) - 1, np.max(combined_z) + 1)
     # fig.subplots_adjust(right=0.5)
     plt.pause(0.01)
-
 
 # plt.close()
 fig, axs = plt.subplots(2, 1, figsize=(7, 7))
