@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from test_init.init import initialization
 
 # Setup
-dataset = 0 # 0: KITTI, 1: Malaga, 2: parking
+dataset = 2 # 0: KITTI, 1: Malaga, 2: parking
 parking_path = "" 
 malaga_path = ""
 kitti_path = ""
@@ -53,7 +53,7 @@ else:
 
 # Bootstrap
 # Need to set bootstrap_frames
-bootstrap_frames = [0, 2]
+bootstrap_frames = [0, 3]
 
 if dataset == 0:
     img0 = cv2.imread(os.path.join(kitti_path, 'data/kitti/05/image_0/', 
