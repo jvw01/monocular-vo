@@ -340,8 +340,8 @@ def initialization_cv2(img0, img1, dataset, left_images, K, verbosity=1):
         print("Rotation:\n", R)
         print("Translation:\n", T)
 
-    # We return the *detected keypoints from image0* (2,N) and the 3D points
-    return pts1, P
+    # We return the *matched keypoints from image1* (2,N) and the 3D points
+    return matched_pts2, P
 
 
     
