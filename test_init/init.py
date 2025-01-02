@@ -10,7 +10,7 @@ from test_init.init_fct import plotMatches, decomposeEssentialMatrix, disambigua
 from test_init.init_fct import fundamentalEightPointNormalized
 from test_init.init_fct import ransacLocalization, drawCamera, getMatchedKeypoints
 
-def initialization(img0, img1, dataset, range_frames, left_images, K):
+def initialization(img0, img1, dataset, left_images, K):
     
     print("ok ça fonctionne")
     corner_patch_size = 9
@@ -170,42 +170,43 @@ def initialization(img0, img1, dataset, range_frames, left_images, K):
     return keypoints, P 
 
 
-def initialization_cv2(img0, img1, dataset, range_frames, left_images, K):
+def initialization_cv2(img0, img1, dataset, left_images, K, verbosity=1):
     """
     Initialization using cv2 Harris detection, cv2 descriptor computation, 
     and cv2 feature matching. Replicates the same plots as the original 'initialization'.
     """
-
     # -----------------------------
     # 1) Harris Corner Detection NOT ACTUALLY USED
     # -----------------------------
     corner_patch_size = 9    # blockSize for cv2.cornerHarris
     harris_kappa      = 0.08 # k for cv2.cornerHarris
     ksize             = 3    # Aperture parameter for the Sobel operator in cornerHarris
+    
 
-    # Convert images to float32 if necessary for Harris
-    img0_float = np.float32(img0)
-    img1_float = np.float32(img1)
+    if verbosity > 0: # Only do harris computation, if verbosity is high for visualization
+        # Convert images to float32 if necessary for Harris
+        img0_float = np.float32(img0)
+        img1_float = np.float32(img1)
 
-    # Compute Harris response
-    harris_scores_1 = cv2.cornerHarris(img0_float, blockSize=corner_patch_size, ksize=ksize, k=harris_kappa)
-    harris_scores_2 = cv2.cornerHarris(img1_float, blockSize=corner_patch_size, ksize=ksize, k=harris_kappa)
+        # Compute Harris response
+        harris_scores_1 = cv2.cornerHarris(img0_float, blockSize=corner_patch_size, ksize=ksize, k=harris_kappa)
+        harris_scores_2 = cv2.cornerHarris(img1_float, blockSize=corner_patch_size, ksize=ksize, k=harris_kappa)
 
-    # For visualization, normalize/clip Harris scores so they're easier to see
-    # (optional step, depends on your preference)
-    harris_display_1 = np.clip(harris_scores_1, 0, None)
-    harris_display_2 = np.clip(harris_scores_2, 0, None)
+        # For visualization, normalize/clip Harris scores so they're easier to see
+        # (optional step, depends on your preference)
+        harris_display_1 = np.clip(harris_scores_1, 0, None)
+        harris_display_2 = np.clip(harris_scores_2, 0, None)
 
-    # Plot: left = original image0, right = Harris scores
-    fig, axs = plt.subplots(1, 2, figsize=(10,4))
-    axs[0].imshow(img0, cmap='gray')
-    axs[0].axis('off')
-    axs[0].set_title('Image 0')
-    axs[1].imshow(harris_display_1, cmap='jet')
-    axs[1].axis('off')
-    axs[1].set_title('Harris Scores (Image 0)')
-    fig.tight_layout()
-    plt.show()
+        # Plot: left = original image0, right = Harris scores
+        fig, axs = plt.subplots(1, 2, figsize=(10,4))
+        axs[0].imshow(img0, cmap='gray')
+        axs[0].axis('off')
+        axs[0].set_title('Image 0')
+        axs[1].imshow(harris_display_1, cmap='jet')
+        axs[1].axis('off')
+        axs[1].set_title('Harris Scores (Image 0)')
+        fig.tight_layout()
+        plt.show()
 
     # -----------------------------
     # 2) Keypoint Detection (Harris-based)
@@ -280,7 +281,7 @@ def initialization_cv2(img0, img1, dataset, range_frames, left_images, K):
     #    Using landmarks_3D
     # -----------------------------
     # P is shape (3, N), R is (3,3) rotation, T is (3,1) translation
-    P, R, T = landmarks_3D(matched_pts1, matched_pts2, K)
+    P, R, T = landmarks_3D_cv2(matched_pts1, matched_pts2, K)
 
     # -----------------------------
     # 6) Visualization
@@ -289,54 +290,55 @@ def initialization_cv2(img0, img1, dataset, range_frames, left_images, K):
     #    C) Matches 
     # -----------------------------
     # Make a figure with 2 subplots: one for the 3D scatter, one for the 2D image
-    plt.clf()
-    plt.close()
-    fig = plt.figure(figsize=(12, 6))
+    if verbosity > 0:
+        plt.clf()
+        plt.close()
+        fig = plt.figure(figsize=(12, 6))
 
-    # Subplot 1: 3D scatter
-    ax1 = fig.add_subplot(1, 2, 1, projection='3d')
-    ax1.scatter(P[0, :], P[1, :], P[2, :], marker='o')
-    ax1.set_title("3D Scatter Plot")
+        # Subplot 1: 3D scatter
+        ax1 = fig.add_subplot(1, 2, 1, projection='3d')
+        ax1.scatter(P[0, :], P[1, :], P[2, :], marker='o')
+        ax1.set_title("3D Scatter Plot")
 
-    # Subplot 2: second image with keypoints
-    ax2 = fig.add_subplot(1, 2, 2)
-    ax2.imshow(img1, cmap='gray')
-    # Plot keypoints
-    ax2.plot(pts2[0, :], pts2[1, :], 'rx', linewidth=2, label='Keypoints (Img 1)')
+        # Subplot 2: second image with keypoints
+        ax2 = fig.add_subplot(1, 2, 2)
+        ax2.imshow(img1, cmap='gray')
+        # Plot keypoints
+        ax2.plot(pts2[0, :], pts2[1, :], 'rx', linewidth=2, label='Keypoints (Img 1)')
 
-    # matched_pts1 -> matched_pts2, 
-    # cv2.drawMatches(img0, kp1, img1, kp2, matches, img1, flags=cv2.DRAW_MATCHES_FLAGS_NOT_DRAW_SINGLE_POINTS)
-    ax2.set_title("Image 1 with Detected Keypoints")
-    ax2.set_axis_off()
-    plt.tight_layout()
-    plt.show()
+        # matched_pts1 -> matched_pts2, 
+        # cv2.drawMatches(img0, kp1, img1, kp2, matches, img1, flags=cv2.DRAW_MATCHES_FLAGS_NOT_DRAW_SINGLE_POINTS)
+        ax2.set_title("Image 1 with Detected Keypoints")
+        ax2.set_axis_off()
+        plt.tight_layout()
+        plt.show()
 
-    # -----------------------------
-    # 7) Reprojection of 3D points
-    # -----------------------------
-    # [R|T] is 3x4, P is 4xN 
-    reprojection = K @ np.hstack((R, T)) @ P  # shape (3, N)
-    reprojection_cartesian = reprojection[:2] / reprojection[2]
+        # -----------------------------
+        # 7) Reprojection of 3D points
+        # -----------------------------
+        # [R|T] is 3x4, P is 4xN 
+        reprojection = K @ np.hstack((R, T)) @ P  # shape (3, N)
+        reprojection_cartesian = reprojection[:2] / reprojection[2]
 
-    # Plot reprojection vs. original keypoints 
-    plt.clf()
-    plt.close()
-    plt.imshow(img1, cmap='gray')
+        # Plot reprojection vs. original keypoints 
+        plt.clf()
+        plt.close()
+        plt.imshow(img1, cmap='gray')
 
-    # plot matched_pts2 (the 2D corners from the second image in the match)
-    plt.plot(matched_pts2[0, :], matched_pts2[1, :], 'rx', linewidth=2, label='Keypoints (matched)')
+        # plot matched_pts2 (the 2D corners from the second image in the match)
+        plt.plot(matched_pts2[0, :], matched_pts2[1, :], 'rx', linewidth=2, label='Keypoints (matched)')
 
-    # plot the reprojected 3D points
-    plt.plot(reprojection_cartesian[0, :], reprojection_cartesian[1, :], 'go', linewidth=2, label='Reprojected 3D points')
+        # plot the reprojected 3D points
+        plt.plot(reprojection_cartesian[0, :], reprojection_cartesian[1, :], 'go', linewidth=2, label='Reprojected 3D points')
 
-    plt.axis('off')
-    plt.legend()
-    plt.show()
+        plt.axis('off')
+        plt.legend()
+        plt.show()
 
-    print("3D Points:\n", P)
-    print("Calibration Matrix K:\n", K)
-    print("Rotation:\n", R)
-    print("Translation:\n", T)
+        print("3D Points:\n", P)
+        print("Calibration Matrix K:\n", K)
+        print("Rotation:\n", R)
+        print("Translation:\n", T)
 
     # We return the *detected keypoints from image0* (2,N) and the 3D points
     return pts1, P
@@ -348,9 +350,9 @@ def landmarks_3D (keypoints, keypoints_2, K ):
     #With Cv2 function: to compare : doesn't give the same 
 
     F, mask = cv2.findFundamentalMat(keypoints.T, keypoints_2.T, method=cv2.FM_8POINT)
-    print("F:\n",F)
+    # print("F:\n",F)
     E, mask = cv2.findEssentialMat(keypoints.T, keypoints_2.T, K, method=cv2.RANSAC, prob=0.999, threshold=1.0)
-    print("E:\n", E)
+    # print("E:\n", E)
     _, R, T, _ = cv2.recoverPose(E, keypoints.T, keypoints_2.T, K)
     print(R, T)
     print(T)
@@ -382,33 +384,16 @@ def landmarks_3D (keypoints, keypoints_2, K ):
     
     return P, R, T
 
-def landmarks_3D_with_masks(keypoints, keypoints_2, K):
-    F, mask_F = cv2.findFundamentalMat(keypoints.T, keypoints_2.T, method=cv2.FM_8POINT)
-    E, mask_E = cv2.findEssentialMat(keypoints.T, keypoints_2.T, K, method=cv2.RANSAC, prob=0.9, threshold=5.0)
-    
-    # Filter inliers for Essential
-    inliers_E = (mask_E.ravel() == 1)
-    pts1 = keypoints[:, inliers_E].T
-    pts2 = keypoints_2[:, inliers_E].T
-    # pts1 = keypoints.T
-    # pts2 = keypoints_2.T
-
-    print("points1 masked: ", pts1)
-    print("points2 masked: ", pts2)
-    
-    # Recover pose only with inliers
-    _, R, T, mask_pose = cv2.recoverPose(E, pts1, pts2, K, 5.0)
-    inliers_pose = (mask_pose.ravel() == 1)
-    # pts1 = pts1[inliers_pose, :]
-    # pts2 = pts2[inliers_pose, :]
-
-    
+def landmarks_3D_cv2 (keypoints, keypoints_2, K, verbosity=1):
+    E, mask = cv2.findEssentialMat(keypoints.T, keypoints_2.T, K, method=cv2.RANSAC, prob=0.999, threshold=1.0)
+    _, R, T, _ = cv2.recoverPose(E, keypoints.T, keypoints_2.T, K)
+    if verbosity > 0:
+        print(R, T)
+        print(T)
     M1 = np.dot(K, np.eye(3, 4))
-    M2 = np.dot(K, np.c_[R, T])
-
-    print("points1 masked: ", pts1)
-    print("points2 masked: ", pts2)
+    M2 = np.dot (K, np.c_[R, T])
+    P = cv2.triangulatePoints( M1, M2 ,keypoints, keypoints_2)
+    if verbosity > 0:
+        print(P)
     
-    # Triangulate only the final inliers
-    P = cv2.triangulatePoints(M1, M2, pts1.T, pts2.T)
     return P, R, T

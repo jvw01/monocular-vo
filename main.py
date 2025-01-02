@@ -16,8 +16,8 @@ if dataset == 0:
     ground_truth = np.loadtxt(os.path.join(kitti_path, 'data/kitti/poses/05.txt'))
     ground_truth = ground_truth[:, [-9, -1]] 
     left_images = 0
-    print(ground_truth)
-    print(len(ground_truth))
+    # print(ground_truth)
+    # print(len(ground_truth))
     plt.plot(ground_truth[:,0],ground_truth[:,1])
     plt.show()
     last_frame = 4540
@@ -76,8 +76,34 @@ else:
     raise AssertionError("Invalid dataset selection")
 
 
+key_points, p_W_landmarks = initialization_cv2(img0,img1,dataset, left_images, K, verbosity=1)
+
+# print shape of key_points and p_W_landmarks
+print(key_points.shape) # (2, K)
+print(p_W_landmarks.shape) # (4, K)
+
+# Normalize landmarks from (K, 4) to (K, 3)
+if p_W_landmarks.shape[0] == 4:
+    # Extract the w component and reshape for broadcasting
+    w = p_W_landmarks[3, :].reshape(1, -1) + 1e-10  # Avoid division by zero
+    p_W_landmarks_normalized = p_W_landmarks[:3, :] / w
+else:
+    # If already in Cartesian coordinates, no change needed
+    p_W_landmarks_normalized = p_W_landmarks
+
+# verify shapes
+print("After normalization:")
+print(key_points.T.shape) # (K, 2)
+print(p_W_landmarks_normalized.T.shape) # (K, 3)
+# Save into the dictionary with normalized landmarks
+S_prev = {
+    "keypoints": key_points.T,                   # Shape: (K, 2) -> transpose
+    "landmarks": p_W_landmarks_normalized.T,    # Shape: (K, 3) -> transpose
+    "candidate_keypoints": None,
+    "first_observations": None,
+    "pose_at_first_observation": None
+}
+
 # Continuous operation
 range_frames = range(bootstrap_frames[1] + 1, last_frame + 1)
 prev_img = None
-
-initialization_cv2(img0,img1,dataset, range_frames, left_images, K)
