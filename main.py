@@ -2,10 +2,10 @@ import os
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-from test_init.init import initialization
+from test_init.init import initialization, initialization_cv2
 
 # Setup
-dataset = 2 # 0: KITTI, 1: Malaga, 2: parking
+dataset = 0 # 0: KITTI, 1: Malaga, 2: parking
 parking_path = "" 
 malaga_path = ""
 kitti_path = ""
@@ -53,7 +53,7 @@ else:
 
 # Bootstrap
 # Need to set bootstrap_frames
-bootstrap_frames = [0, 3]
+bootstrap_frames = [0, 2]
 
 if dataset == 0:
     img0 = cv2.imread(os.path.join(kitti_path, 'data/kitti/05/image_0/', 
@@ -80,4 +80,4 @@ else:
 range_frames = range(bootstrap_frames[1] + 1, last_frame + 1)
 prev_img = None
 
-initialization(img0,img1,dataset, range_frames, left_images, K)
+initialization_cv2(img0,img1,dataset, range_frames, left_images, K)
