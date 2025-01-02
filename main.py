@@ -1,17 +1,18 @@
 import os
+from time import sleep
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 from process_frame import processFrame
 import matplotlib.transforms as transforms
 
-bootstrap = False # boolean variable to determine if we are bootstrapping or not
+bootstrap = True # boolean variable to determine if we are bootstrapping or not
 low_keypoint_plot_threshold = 200
 import matplotlib.pyplot as plt
 from test_init.init import initialization, initialization_cv2
 
 # Setup
-dataset = 3 # 0: KITTI, 1: Malaga, 2: parking, 3: test
+dataset = 0 # 0: KITTI, 1: Malaga, 2: parking, 3: test
 parking_path = "" #"data/parking/images/"
 malaga_path = "" #"data/malaga/Images/"
 kitti_path = "" #"data/kitti/image_0/"
@@ -98,7 +99,7 @@ elif dataset == 3:
     params["distance_threshold"] = 3 # threshold for sorting out duplicate new keypoints
 
 else:
-    raise AssertionError("Invalid dataset selection")
+    raise AssertionError("Invalid dataset selection for bootstrapping")
 
 if bootstrap:
     # Load frames to perform bootstrapping on
@@ -124,14 +125,40 @@ if bootstrap:
     else:
         raise AssertionError("Invalid dataset selection")
     
-    # TODO: DO BOOTSTRAP ACTION HERE
+    key_points, p_W_landmarks = initialization_cv2(img0,img1,dataset, K, verbosity=1)
+
+    # print shape of key_points and p_W_landmarks
+    print(key_points.shape) # (2, K)
+    print(p_W_landmarks.shape) # (4, K)
+
+    # Normalize landmarks from (K, 4) to (K, 3)
+    if p_W_landmarks.shape[0] == 4:
+        # Extract the w component and reshape for broadcasting
+        w = p_W_landmarks[3, :].reshape(1, -1) + 1e-10  # Avoid division by zero
+        p_W_landmarks_normalized = p_W_landmarks[:3, :] / w
+    else:
+        # If already in Cartesian coordinates, no change needed
+        p_W_landmarks_normalized = p_W_landmarks
+
+    # verify shapes
+    print("After normalization:")
+    print(key_points.T.shape) # (K, 2)
+    print(p_W_landmarks_normalized.T.shape) # (K, 3)
+    
+    # check datatype of key_points and p_W_landmarks
+    if key_points.dtype != np.float32:
+        key_points = key_points.astype(np.float32)
+    if p_W_landmarks_normalized.dtype != np.float32:
+        p_W_landmarks_normalized = p_W_landmarks_normalized.astype(np.float32)
+
+    # Save into the dictionary with normalized landmarks
     S_prev = {
-                "keypoints": key_points, # dim: Kx2
-                "landmarks": p_W_landmarks, # dim: Kx3
-                "candidate_keypoints": None, # no candidate keypoints in the beginning
-                "first_observations": None, # no candidate keypoints in the beginning
-                "pose_at_first_observation": None # no candidate keypoints in the beginning
-            }
+        "keypoints": key_points.T,                   # Shape: (K, 2) -> transpose
+        "landmarks": p_W_landmarks_normalized.T,    # Shape: (K, 3) -> transpose
+        "candidate_keypoints": None,
+        "first_observations": None,
+        "pose_at_first_observation": None
+    }
 
 else:
     # Circumvent bootstrapping by loading precomputed bootstrapping data
@@ -157,7 +184,8 @@ else:
 
 # CONTINUOUS OPERATION
 if bootstrap:
-    range_frames = range(bootstrap_frames[1] + 1, last_frame + 1)
+    range_frames = range(bootstrap_frames[1] + 1, 100) # last_frame + 1) # for some reason fails at frame 100, therefore stopping at 99
+    print(last_frame)
 else:
     # range_frames = range(1, last_frame + 1)
     range_frames = range(1, 100) # Hardcode this because we don't have the rest of the dataset available right now

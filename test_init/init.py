@@ -170,7 +170,7 @@ def initialization(img0, img1, dataset, left_images, K):
     return keypoints, P 
 
 
-def initialization_cv2(img0, img1, dataset, left_images, K, verbosity=1):
+def initialization_cv2(img0, img1, dataset, K, left_images=0, verbosity=1):
     """
     Initialization using cv2 Harris detection, cv2 descriptor computation, 
     and cv2 feature matching. Replicates the same plots as the original 'initialization'.
