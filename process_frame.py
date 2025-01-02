@@ -105,7 +105,6 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, params: di
             v2 = K_inv @ np.hstack((promotable_keypoints, np.ones((n_promotable_keypoints,1)))).T # v2 = K⁽⁻¹⁾ * [u2; v2; 1] (no need for rotation since we are already in correct frame); dim 3xK
             alpha = np.arccos(np.sum(v1 * v2, axis=0) / (np.linalg.norm(v1, axis=0) * np.linalg.norm(v2, axis=0))) # angle between bearing vectors in radians
             triangulate = alpha > angle_threshold_for_triangulation # mask that indicates if the angle between the bearing vectors is large enough for triangulation
-
             # filter keypoints that can be promoted (angle between bearing vectors is large enough)
             debug_dict["untriangulatable_promotable_candidate_keypoints"] = promotable_keypoints[~triangulate]
             promotable_keypoints_after_angle_threshold = promotable_keypoints[triangulate]
@@ -146,6 +145,7 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, params: di
                 for keypoint_group_tracker_number in np.unique(promoted_keypoint_tracker):
 
                     keypoint_group_mask = promoted_keypoint_tracker == keypoint_group_tracker_number
+
                     T_WC_first_observation_KP_group = T_WC_first_observation[keypoint_group_mask]
                     promoted_keypoints_first_observations_KP_group = promoted_keypoints_first_observations[keypoint_group_mask]
                     promotable_keypoints_after_angle_threshold_KP_group = promotable_keypoints_after_angle_threshold[keypoint_group_mask]
@@ -165,7 +165,9 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, params: di
                         # If there is only one promoted landmark, the returned array is of shape (3,) instead of (3,N) -> add dimension so the masking works smoothly
                         promoted_landmarks = promoted_landmarks[:, None]
                     
-                    mask = (promoted_landmarks[2] - T_WC[2,3] > min_depth) & (promoted_landmarks[2] - T_WC[2,3] < max_depth)
+                    promoted_landmarks_C2_frame = T_WC[:3,:3].T @ promoted_landmarks
+                    camera_pos = T_WC[:3,:3].T @ T_WC[:,3]
+                    mask = (promoted_landmarks_C2_frame[2, :] - camera_pos[2] > min_depth) & (promoted_landmarks_C2_frame[2, :] - camera_pos[2] < max_depth)
                     add_keypoints = promotable_keypoints_after_angle_threshold_KP_group[mask]
                     
                     debug_dict["promotable_candidate_keypoints_outside_thresholds"] = np.vstack((debug_dict["promotable_candidate_keypoints_outside_thresholds"], promotable_keypoints_after_angle_threshold_KP_group[~mask]))

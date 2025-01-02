@@ -34,8 +34,8 @@ if dataset == 0:
     # set parameters for VO pipeline (tuned)
     params["K"] = K
     params["L_m"] = 2
-    params["min_depth"] = 1
-    params["max_depth"] = 80
+    params["min_depth"] = 0
+    params["max_depth"] = 120
     angle_threshold_for_triangulation = 4 # in degrees
     params["angle_threshold_for_triangulation"] = angle_threshold_for_triangulation * np.pi / 180 # convert to radians
     params["distance_threshold"] = 3 # threshold for sorting out duplicate new keypoints
@@ -103,7 +103,7 @@ else:
 
 if bootstrap:
     # Load frames to perform bootstrapping on
-    bootstrap_frames = [0, 2]
+    bootstrap_frames = [0, 4]
 
     if dataset == 0:
         img0 = cv2.imread(os.path.join(kitti_path, 'data/kitti/05/image_0/', 
@@ -127,10 +127,6 @@ if bootstrap:
     
     key_points, p_W_landmarks = initialization_cv2(img0,img1,dataset, K, verbosity=1)
 
-    # print shape of key_points and p_W_landmarks
-    print(key_points.shape) # (2, K)
-    print(p_W_landmarks.shape) # (4, K)
-
     # Normalize landmarks from (K, 4) to (K, 3)
     if p_W_landmarks.shape[0] == 4:
         # Extract the w component and reshape for broadcasting
@@ -139,11 +135,6 @@ if bootstrap:
     else:
         # If already in Cartesian coordinates, no change needed
         p_W_landmarks_normalized = p_W_landmarks
-
-    # verify shapes
-    print("After normalization:")
-    print(key_points.T.shape) # (K, 2)
-    print(p_W_landmarks_normalized.T.shape) # (K, 3)
     
     # check datatype of key_points and p_W_landmarks
     if key_points.dtype != np.float32:
@@ -184,7 +175,7 @@ else:
 
 # CONTINUOUS OPERATION
 if bootstrap:
-    range_frames = range(bootstrap_frames[1] + 1, 100) # last_frame + 1) # for some reason fails at frame 100, therefore stopping at 99
+    range_frames = range(bootstrap_frames[1] + 1, last_frame+1) # last_frame + 1) # for some reason fails at frame 100, therefore stopping at 99
     print(last_frame)
 else:
     # range_frames = range(1, last_frame + 1)
@@ -304,6 +295,8 @@ for index, i in enumerate(range_frames):
     trajectory_points_with_low_keypoints_plot.set_data([item[0] for item in trajectory_points_with_low_keypoints], [item[2] for item in trajectory_points_with_low_keypoints])
     combined_x = np.concatenate((trajectory[0, :index+1], S["landmarks"][:, 0]))
     combined_z = np.concatenate((trajectory[2, :index+1], S["landmarks"][:, 2]))
+    # ax2.axis('equal')
+    # plt.axes().set_aspect(1)
     ax2.set_xlim(np.min(combined_x) - 1, np.max(combined_x) + 1)
     ax2.set_ylim(np.min(combined_z) - 1, np.max(combined_z) + 1)
     # fig.subplots_adjust(right=0.5)

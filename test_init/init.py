@@ -212,7 +212,7 @@ def initialization_cv2(img0, img1, dataset, K, left_images=0, verbosity=1):
     # 2) Keypoint Detection (Harris-based)
     #    Using cv2.goodFeaturesToTrack with the Harris detector
     # -----------------------------
-    maxCorners    = 220       
+    maxCorners    = 400       
     qualityLevel  = 0.01
     minDistance   = 8         # Similar to 'nonmaximum_supression_radius'
     blockSize     = corner_patch_size  # same as above for consistency
@@ -281,7 +281,7 @@ def initialization_cv2(img0, img1, dataset, K, left_images=0, verbosity=1):
     #    Using landmarks_3D
     # -----------------------------
     # P is shape (3, N), R is (3,3) rotation, T is (3,1) translation
-    P, R, T = landmarks_3D_cv2(matched_pts1, matched_pts2, K)
+    P, R, T, matched_pts2 = landmarks_3D_cv2(matched_pts1, matched_pts2, K)
 
     # -----------------------------
     # 6) Visualization
@@ -386,14 +386,16 @@ def landmarks_3D (keypoints, keypoints_2, K ):
 
 def landmarks_3D_cv2 (keypoints, keypoints_2, K, verbosity=1):
     E, mask = cv2.findEssentialMat(keypoints.T, keypoints_2.T, K, method=cv2.RANSAC, prob=0.999, threshold=1.0)
+    keypoints = np.expand_dims(keypoints.T, 1)[mask == 1].T
+    keypoints_2 = np.expand_dims(keypoints_2.T, 1)[mask == 1].T
     _, R, T, _ = cv2.recoverPose(E, keypoints.T, keypoints_2.T, K)
     if verbosity > 0:
         print(R, T)
         print(T)
     M1 = np.dot(K, np.eye(3, 4))
     M2 = np.dot (K, np.c_[R, T])
-    P = cv2.triangulatePoints( M1, M2 ,keypoints, keypoints_2)
+    P = cv2.triangulatePoints( M1, M2, keypoints, keypoints_2)
     if verbosity > 0:
         print(P)
     
-    return P, R, T
+    return P, R, T, keypoints_2
