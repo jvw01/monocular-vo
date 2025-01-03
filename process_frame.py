@@ -142,54 +142,42 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, params: di
                 debug_dict["promotable_candidate_keypoints_outside_thresholds"] = np.empty((0, 2), dtype=np.float32)
                 debug_dict["promoted_candidate_keypoints"] = np.empty((0, 2), dtype=np.float32)
                 debug_dict["n_lost_candidates_at_cartesian_mask"] = 0
-                for keypoint_group_tracker_number in np.unique(promoted_keypoint_tracker):
+                for i in range(n_promoted_keypoints):
 
-                    keypoint_group_mask = promoted_keypoint_tracker == keypoint_group_tracker_number
-
-                    T_WC_first_observation_KP_group = T_WC_first_observation[keypoint_group_mask]
-                    promoted_keypoints_first_observations_KP_group = promoted_keypoints_first_observations[keypoint_group_mask]
-                    promotable_keypoints_after_angle_threshold_KP_group = promotable_keypoints_after_angle_threshold[keypoint_group_mask]
-                    promoted_keypoint_poses_prev_KP_group = promoted_keypoint_poses_prev[keypoint_group_mask]
-                    promoted_keypoint_tracker_KP_group = promoted_keypoint_tracker[keypoint_group_mask]
-
-                    assert np.all(T_WC_first_observation_KP_group == T_WC_first_observation_KP_group[0]), "The T_WC_first_observation matrices are not the same for all keypoints to be promoted"
-
-                    R_CW_first_observation = T_WC_first_observation_KP_group[0, :3, :3].T
-                    t_CW_first_observation = -R_CW_first_observation @ T_WC_first_observation_KP_group[0, :3, 3][:, None]
+                    R_CW_first_observation = T_WC_first_observation[i, :3, :3].T
+                    t_CW_first_observation = -R_CW_first_observation @ T_WC_first_observation[i, :3, 3][:, None]
                     T_CW_first_observation = np.hstack((R_CW_first_observation, t_CW_first_observation))
                     M1 = K @ T_CW_first_observation
-                    promoted_landmarks = cv2.triangulatePoints(projMatr1=M1, projMatr2=M2, projPoints1=promoted_keypoints_first_observations_KP_group.T, projPoints2=promotable_keypoints_after_angle_threshold_KP_group.T)
-                    promoted_landmarks = (promoted_landmarks / promoted_landmarks[3])[:3].squeeze() # normalize homogeneous coordinates
+                    promoted_landmark = cv2.triangulatePoints(projMatr1=M1, projMatr2=M2, projPoints1=promoted_keypoints_first_observations[i], projPoints2=promotable_keypoints_after_angle_threshold[i])
+                    promoted_landmark = (promoted_landmark / promoted_landmark[3])[:3].squeeze() # normalize homogeneous coordinates
 
-                    if len(promoted_landmarks.shape) == 1:
-                        # If there is only one promoted landmark, the returned array is of shape (3,) instead of (3,N) -> add dimension so the masking works smoothly
-                        promoted_landmarks = promoted_landmarks[:, None]
+                    # if len(promoted_landmark.shape) == 1:
+                    #     # If there is only one promoted landmark, the returned array is of shape (3,) instead of (3,N) -> add dimension so the masking works smoothly
+                    #     promoted_landmarks = promoted_landmarks[:, None]
                     
-                    promoted_landmarks_C2_frame = T_WC[:3,:3].T @ promoted_landmarks
-                    camera_pos = T_WC[:3,:3].T @ T_WC[:,3]
-                    mask = (promoted_landmarks_C2_frame[2, :] - camera_pos[2] > min_depth) & (promoted_landmarks_C2_frame[2, :] - camera_pos[2] < max_depth)
-                    add_keypoints = promotable_keypoints_after_angle_threshold_KP_group[mask]
+                    promoted_landmark_C2_frame = T_CW @ np.hstack((promoted_landmark, np.ones(1)))
+                    mask = (promoted_landmark_C2_frame[2] > min_depth) & (promoted_landmark_C2_frame[2] < max_depth)
+
+                    if mask == True:
+                        add_keypoint = promotable_keypoints_after_angle_threshold[i]
                     
-                    debug_dict["promotable_candidate_keypoints_outside_thresholds"] = np.vstack((debug_dict["promotable_candidate_keypoints_outside_thresholds"], promotable_keypoints_after_angle_threshold_KP_group[~mask]))
-                    debug_dict["promoted_candidate_keypoints"] = np.vstack((debug_dict["promoted_candidate_keypoints"], add_keypoints))
-                    debug_dict["n_lost_candidates_at_cartesian_mask"] += promotable_keypoints_after_angle_threshold_KP_group.shape[0] - add_keypoints.shape[0]
-                    debug_dict["n_promoted_keypoints"] += add_keypoints.shape[0]
+                        debug_dict["promoted_candidate_keypoints"] = np.vstack((debug_dict["promoted_candidate_keypoints"], add_keypoint))
+                        debug_dict["n_promoted_keypoints"] += 1
 
-                    # Promote the keypoints
-                    keypoints = np.vstack((keypoints, add_keypoints))
-                    add_landmarks = promoted_landmarks.T[mask]
-                    landmarks = np.vstack((landmarks, add_landmarks))
+                        # Promote the keypoints
+                        keypoints = np.vstack((keypoints, add_keypoint))
+                        add_landmark = promoted_landmark
+                        landmarks = np.vstack((landmarks, add_landmark))
 
-                    readd_keypoints = promotable_keypoints_after_angle_threshold_KP_group[~mask]
-                    readd_first_observations = promoted_keypoints_first_observations_KP_group[~mask]
-                    readd_pose_at_first_observations = promoted_keypoint_poses_prev_KP_group[~mask]
-                    readd_keypoint_tracker = promoted_keypoint_tracker_KP_group[~mask]
+                    else:
+                        debug_dict["promotable_candidate_keypoints_outside_thresholds"] = np.vstack((debug_dict["promotable_candidate_keypoints_outside_thresholds"], promotable_keypoints_after_angle_threshold[i]))
+                        debug_dict["n_lost_candidates_at_cartesian_mask"] += 1
 
-                    # add keypoints that cannot be promoted back to candidate list
-                    candidate_keypoints = np.vstack((candidate_keypoints, readd_keypoints))
-                    first_observations = np.vstack((first_observations, readd_first_observations))
-                    pose_at_first_observations = np.vstack((pose_at_first_observations, readd_pose_at_first_observations))
-                    keypoint_tracker = np.hstack((keypoint_tracker, readd_keypoint_tracker))
+                        # add keypoints that cannot be promoted back to candidate list
+                        candidate_keypoints = np.vstack((candidate_keypoints, promotable_keypoints_after_angle_threshold[i]))
+                        first_observations = np.vstack((first_observations, promoted_keypoints_first_observations[i]))
+                        pose_at_first_observations = np.vstack((pose_at_first_observations, promoted_keypoint_poses_prev[i]))
+                        keypoint_tracker = np.hstack((keypoint_tracker, promoted_keypoint_tracker[i]))
             else:
                 debug_dict["promotable_candidate_keypoints_outside_thresholds"] = np.empty((0, 2), dtype=np.float32)
                 debug_dict["promoted_candidate_keypoints"] = np.empty((0, 2), dtype=np.float32)
