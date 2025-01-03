@@ -125,7 +125,7 @@ if bootstrap:
     else:
         raise AssertionError("Invalid dataset selection")
     
-    key_points, p_W_landmarks = initialization_cv2(img0,img1,dataset, K, verbosity=1)
+    key_points, p_W_landmarks = initialization_cv2(img0,img1,dataset, K, verbosity=0)
 
     # Normalize landmarks from (K, 4) to (K, 3)
     if p_W_landmarks.shape[0] == 4:
@@ -193,7 +193,10 @@ n_lost_candidates_at_cartesian_mask = []
 n_new_candidate_keypoints_list = []
 
 # Visualisation of VO pipeline
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 7))
+fig = plt.figure(figsize=(14, 7))
+ax1 = plt.subplot2grid((2, 2), (0, 0))
+ax3 = plt.subplot2grid((2, 2), (1, 0))
+ax2 = plt.subplot2grid((2, 2), (0, 1))
 
 ax1.set_title('Keypoints')  # Set the title of the figure
 img_plot = ax1.imshow(img0, cmap='gray')
@@ -218,6 +221,9 @@ landmarks_plot, = ax2.plot([], [], 'ro', markersize=3, label='Landmarks')
 trajectory_plot, = ax2.plot([], [], 'b-o', markersize=3, label='Trajectory')
 trajectory_points_with_low_keypoints_plot, = ax2.plot([], [], "o", color="orange", markersize=5, label=f'low keypoints (<{low_keypoint_plot_threshold})', linestyle='None')
 ax2.legend()
+
+ax3.set_title('Number of tracked keypoints (last 20 frames)')
+keypoints_plot, = ax3.plot([], [])
 
 for index, i in enumerate(range_frames):
     print(f"\n\nProcessing frame {i}\n{'=' * 21}\n")
@@ -284,8 +290,17 @@ for index, i in enumerate(range_frames):
     candidate_keypoints_duplicate_with_keypoints_plot.set_label(f'CKP duplicate w KP: {len(debug_dict["candidate_keypoints_duplicate_with_keypoints"])}')
     candidate_keypoints_duplicate_with_prev_candidate_keypoints_plot.set_label(f'CKP duplicate w prev CKP: {len(debug_dict["candidate_keypoints_duplicate_with_prev_candidate_keypoints"])}')
         
-    ax1.legend(loc='lower center', bbox_to_anchor=(0.5, -1.1), ncol=2, fancybox=True, shadow=True)
+    ax1.legend(loc='lower center', bbox_to_anchor=(0.5, -0.7), ncol=2, fancybox=True, shadow=True, fontsize=6)
 
+    if len(n_tracked_keypoints_list) > 20:
+        keypoints_plot.set_data(range(20), n_tracked_keypoints_list[-20:])
+        ax3.set_xlim(0, 20)
+        ax3.set_ylim(0, max(n_tracked_keypoints_list[-20:]))
+    else:
+        keypoints_plot.set_data(range(len(n_tracked_keypoints_list)), n_tracked_keypoints_list)
+        ax3.set_xlim(0, 20)
+        ax3.set_ylim(0, max(n_tracked_keypoints_list))
+                     
     if S["keypoints"].shape[0] < low_keypoint_plot_threshold:
         trajectory_points_with_low_keypoints += [T_WC[:, 3]]
         indices_with_low_keypoints += [i]
