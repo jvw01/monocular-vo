@@ -24,7 +24,7 @@ if dataset == 0:
     assert 'kitti_path' in locals()
     ground_truth = np.loadtxt(os.path.join(kitti_path, 'data/kitti/poses/05.txt'))
     ground_truth = ground_truth[:, [-9, -1]]
-    last_frame = 4540
+    last_frame = 2761
     K = np.array([
         [718.856, 0, 607.1928],
         [0, 718.856, 185.2157],
@@ -35,8 +35,8 @@ if dataset == 0:
     params["K"] = K
     params["L_m"] = 2
     params["min_depth"] = 0
-    params["max_depth"] = 120
-    angle_threshold_for_triangulation = 4 # in degrees
+    params["max_depth"] = 200
+    angle_threshold_for_triangulation = 2 # in degrees
     params["angle_threshold_for_triangulation"] = angle_threshold_for_triangulation * np.pi / 180 # convert to radians
     params["distance_threshold"] = 3 # threshold for sorting out duplicate new keypoints
 
@@ -55,10 +55,10 @@ elif dataset == 1:
     # set parameters for VO pipeline (TODO: tune)
     params["K"] = K
     params["L_m"] = 2
-    params["min_depth"] = 1
-    params["max_depth"] = 80
-    angle_threshold_for_triangulation = 4 # in degrees
-    params["angle_threshold_for_triangulation"] *= np.pi / 180 # convert to radians
+    params["min_depth"] = 0
+    params["max_depth"] = 200
+    angle_threshold_for_triangulation = 3 # in degrees
+    params["angle_threshold_for_triangulation"] = angle_threshold_for_triangulation * np.pi / 180 # convert to radians
     params["distance_threshold"] = 3 # threshold for sorting out duplicate new keypoints
 
 elif dataset == 2:
@@ -67,18 +67,15 @@ elif dataset == 2:
     K = np.loadtxt(os.path.join(parking_path, 'data/parking/K.txt'))
     ground_truth = np.loadtxt(os.path.join(parking_path, 'data/parking/poses.txt'))
     ground_truth = ground_truth[:, [-9, -1]]
-    print(ground_truth)
-    plt.plot(ground_truth[1],ground_truth[0])
-    plt.show()
 
     # set parameters for VO pipeline (TODO: tune)
     params["K"] = K
     params["L_m"] = 2
-    params["min_depth"] = 1
-    params["max_depth"] = 80
-    angle_threshold_for_triangulation = 4 # in degrees
-    params["angle_threshold_for_triangulation"] *= np.pi / 180 # convert to radians
-    params["distance_threshold"] = 3 # threshold for sorting out duplicate new keypoints
+    params["min_depth"] = 0
+    params["max_depth"] = 300
+    angle_threshold_for_triangulation = 3 # in degrees
+    params["angle_threshold_for_triangulation"] = angle_threshold_for_triangulation * np.pi / 180 # convert to radians
+    params["distance_threshold"] = 2 # threshold for sorting out duplicate new keypoints
 
 elif dataset == 3:
     assert 'kitti_path' in locals()
@@ -125,16 +122,16 @@ if bootstrap:
     else:
         raise AssertionError("Invalid dataset selection")
     
-    key_points, p_W_landmarks = initialization_cv2(img0,img1,dataset, K, verbosity=0)
+    key_points, p_W_landmarks_normalized = initialization_cv2(img0,img1,dataset, K, verbosity=0)
 
-    # Normalize landmarks from (K, 4) to (K, 3)
-    if p_W_landmarks.shape[0] == 4:
-        # Extract the w component and reshape for broadcasting
-        w = p_W_landmarks[3, :].reshape(1, -1) + 1e-10  # Avoid division by zero
-        p_W_landmarks_normalized = p_W_landmarks[:3, :] / w
-    else:
-        # If already in Cartesian coordinates, no change needed
-        p_W_landmarks_normalized = p_W_landmarks
+    # # Normalize landmarks from (K, 4) to (K, 3)
+    # if p_W_landmarks.shape[0] == 4:
+    #     # Extract the w component and reshape for broadcasting
+    #     w = p_W_landmarks[3, :].reshape(1, -1) + 1e-10  # Avoid division by zero
+    #     p_W_landmarks_normalized = p_W_landmarks[:3, :] / w
+    # else:
+    #     # If already in Cartesian coordinates, no change needed
+    #     p_W_landmarks_normalized = p_W_landmarks
     
     # check datatype of key_points and p_W_landmarks
     if key_points.dtype != np.float32:
@@ -175,7 +172,7 @@ else:
 
 # CONTINUOUS OPERATION
 if bootstrap:
-    range_frames = range(bootstrap_frames[1] + 1, last_frame+1) # last_frame + 1) # for some reason fails at frame 100, therefore stopping at 99
+    range_frames = range(bootstrap_frames[1] + 1, last_frame)
     print(last_frame)
 else:
     # range_frames = range(1, last_frame + 1)
@@ -290,7 +287,10 @@ for index, i in enumerate(range_frames):
     candidate_keypoints_duplicate_with_keypoints_plot.set_label(f'CKP duplicate w KP: {len(debug_dict["candidate_keypoints_duplicate_with_keypoints"])}')
     candidate_keypoints_duplicate_with_prev_candidate_keypoints_plot.set_label(f'CKP duplicate w prev CKP: {len(debug_dict["candidate_keypoints_duplicate_with_prev_candidate_keypoints"])}')
         
-    ax1.legend(loc='lower center', bbox_to_anchor=(0.5, -0.7), ncol=2, fancybox=True, shadow=True, fontsize=6)
+    if dataset == 0:
+        ax1.legend(loc='lower center', bbox_to_anchor=(0.5, -0.7), ncol=2, fancybox=True, shadow=True, fontsize=6)
+    else:
+        ax1.legend(loc='center left', bbox_to_anchor=(-0.7, 0.5), ncol=1, fancybox=True, shadow=True, fontsize=6)
 
     if len(n_tracked_keypoints_list) > 20:
         keypoints_plot.set_data(range(20), n_tracked_keypoints_list[-20:])
@@ -306,16 +306,23 @@ for index, i in enumerate(range_frames):
         indices_with_low_keypoints += [i]
 
     landmarks_plot.set_data(S["landmarks"][:, 0], S["landmarks"][:, 2])
-    trajectory_plot.set_data(trajectory[0, :index+1], trajectory[2, :index+1])
-    trajectory_points_with_low_keypoints_plot.set_data([item[0] for item in trajectory_points_with_low_keypoints], [item[2] for item in trajectory_points_with_low_keypoints])
-    combined_x = np.concatenate((trajectory[0, :index+1], S["landmarks"][:, 0]))
-    combined_z = np.concatenate((trajectory[2, :index+1], S["landmarks"][:, 2]))
+    if index < 100:
+        trajectory_plot.set_data(trajectory[0, :index+1], trajectory[2, :index+1])
+    else:
+        trajectory_plot.set_data(trajectory[0, index+1-100:index+1], trajectory[2, index+1-100:index+1])
+    # trajectory_points_with_low_keypoints_plot.set_data([item[0] for item in trajectory_points_with_low_keypoints], [item[2] for item in trajectory_points_with_low_keypoints])
+    if index < 100:
+        combined_x = np.concatenate((trajectory[0, :index+1], S["landmarks"][:, 0]))
+        combined_z = np.concatenate((trajectory[2, :index+1], S["landmarks"][:, 2]))
+    else:
+        combined_x = np.concatenate((trajectory[0, index+1-100:index+1], S["landmarks"][:, 0]))
+        combined_z = np.concatenate((trajectory[2, index+1-100:index+1], S["landmarks"][:, 2]))
     # ax2.axis('equal')
     # plt.axes().set_aspect(1)
     ax2.set_xlim(np.min(combined_x) - 1, np.max(combined_x) + 1)
     ax2.set_ylim(np.min(combined_z) - 1, np.max(combined_z) + 1)
     # fig.subplots_adjust(right=0.5)
-    plt.pause(0.01)
+    plt.pause(0.001)
 
 # plt.close()
 fig, axs = plt.subplots(2, 1, figsize=(7, 7))

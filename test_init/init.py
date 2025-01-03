@@ -212,28 +212,22 @@ def initialization_cv2(img0, img1, dataset, K, left_images=0, verbosity=1):
     # 2) Keypoint Detection (Harris-based)
     #    Using cv2.goodFeaturesToTrack with the Harris detector
     # -----------------------------
-    maxCorners    = 400       
-    qualityLevel  = 0.01
-    minDistance   = 8         # Similar to 'nonmaximum_supression_radius'
+    maxCorners    = 1300       
+    qualityLevel  = 0.005
+    minDistance   = 10         # Similar to 'nonmaximum_supression_radius'
     blockSize     = corner_patch_size  # same as above for consistency
 
     pts1 = cv2.goodFeaturesToTrack(
         image=img0, 
         maxCorners=maxCorners, 
         qualityLevel=qualityLevel, 
-        minDistance=minDistance, 
-        blockSize=blockSize,
-        useHarrisDetector=True,
-        k=harris_kappa
+        minDistance=minDistance
     )
     pts2 = cv2.goodFeaturesToTrack(
         image=img1, 
         maxCorners=maxCorners, 
         qualityLevel=qualityLevel, 
-        minDistance=minDistance, 
-        blockSize=blockSize,
-        useHarrisDetector=True,
-        k=harris_kappa
+        minDistance=minDistance
     )
 
     pts1 = np.squeeze(pts1).T  #  (2, N)
@@ -395,6 +389,11 @@ def landmarks_3D_cv2 (keypoints, keypoints_2, K, verbosity=1):
     M1 = np.dot(K, np.eye(3, 4))
     M2 = np.dot (K, np.c_[R, T])
     P = cv2.triangulatePoints( M1, M2, keypoints, keypoints_2)
+    P = (P / P[3])[:3].squeeze()
+
+    mask = P[2] > 0
+    P = P[:,mask]
+    keypoints_2 = keypoints_2[:,mask]
     if verbosity > 0:
         print(P)
     

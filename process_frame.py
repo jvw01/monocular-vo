@@ -29,6 +29,12 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, params: di
     angle_threshold_for_triangulation = params["angle_threshold_for_triangulation"]
     distance_threshold = params["distance_threshold"]
 
+    klt_parameters = {
+            'winSize': (10, 10),
+            'maxLevel': 5,
+            'criteria': (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 50, 0.05)
+        }
+
     # dict for visualization and debugging
     debug_dict = {}
 
@@ -36,7 +42,7 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, params: di
     # track keypoints from previous frame to current frame with KLT (i.e. pixel coordinates)
     keypoints_prev = S_prev["keypoints"] # dim: Kx2
     landmarks = S_prev["landmarks"] # dim: Kx3
-    keypoints, status, _ = cv2.calcOpticalFlowPyrLK(prevImg=img_prev, nextImg=img, prevPts=keypoints_prev, nextPts=None)
+    keypoints, status, _ = cv2.calcOpticalFlowPyrLK(prevImg=img_prev, nextImg=img, prevPts=keypoints_prev, nextPts=None, **klt_parameters)
 
     # filter valid keypoints (note: status is set to 1 if the flow for the corresponding features has been found)
     debug_dict["untrackable_keypoints"] = np.expand_dims(keypoints, 1)[status == 0]
@@ -65,7 +71,7 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, params: di
     if isinstance(S_prev["candidate_keypoints"], np.ndarray):
         # ------------------ Check existing candidate keypoints from previous frame(s) 
         candidate_keypoints_prev = S_prev["candidate_keypoints"]
-        candidate_keypoints, status, _ = cv2.calcOpticalFlowPyrLK(prevImg=img_prev, nextImg=img, prevPts=candidate_keypoints_prev, nextPts=None)
+        candidate_keypoints, status, _ = cv2.calcOpticalFlowPyrLK(prevImg=img_prev, nextImg=img, prevPts=candidate_keypoints_prev, nextPts=None, **klt_parameters)
 
         # remove candidate keypoints that were not tracked successfully
         debug_dict["untrackable_candidate_keypoints"] = np.expand_dims(candidate_keypoints, 1)[status == 0]
@@ -212,7 +218,7 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, params: di
 
     # ------------------ Extract new keypoints and remove duplicates
     # OPTION 1: goodFeaturesToTrack
-    new_candidate_keypoints = cv2.goodFeaturesToTrack(img, maxCorners=800, qualityLevel=0.01, minDistance=10, mask=None, blockSize=9, useHarrisDetector=True).squeeze() # dim: Kx2
+    new_candidate_keypoints = cv2.goodFeaturesToTrack(img, maxCorners=1400, qualityLevel=0.1, minDistance=10).squeeze() # dim: Kx2
 
     # OPTION 2: use functions from exercise 03
     # corner_patch_size = 9
@@ -232,10 +238,11 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, params: di
     debug_dict["new_candidate_keypoints"] = new_candidate_keypoints
 
     # update state
-    candidate_keypoints = np.vstack((candidate_keypoints, new_candidate_keypoints))
-    keypoint_tracker = np.hstack((keypoint_tracker, np.ones(new_candidate_keypoints.shape[0], dtype=np.int64)))
-    first_observations = np.vstack((first_observations, new_candidate_keypoints))
-    pose_at_first_observations = np.vstack((pose_at_first_observations, np.array([T_WC.flatten()]*new_candidate_keypoints.shape[0])))
+    if new_candidate_keypoints.shape[0] > 0:
+        candidate_keypoints = np.vstack((candidate_keypoints, new_candidate_keypoints))
+        keypoint_tracker = np.hstack((keypoint_tracker, np.ones(new_candidate_keypoints.shape[0], dtype=np.int64)))
+        first_observations = np.vstack((first_observations, new_candidate_keypoints))
+        pose_at_first_observations = np.vstack((pose_at_first_observations, np.array([T_WC.flatten()]*new_candidate_keypoints.shape[0])))
 
     S = {
             "keypoints": keypoints, # dim: Kx2
