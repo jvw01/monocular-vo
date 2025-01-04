@@ -45,7 +45,7 @@ elif dataset == 1:
     images = sorted(os.listdir(os.path.join(malaga_path, 
                 'data/malaga/malaga-urban-dataset-extract-07_rectified_800x600_Images/')))
     left_images = images[0::2]
-    last_frame = 1560
+    last_frame = 1580
     K = np.array([
         [621.18428, 0, 404.0076],
         [0, 621.18428, 309.05989],
