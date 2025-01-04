@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from test_init.init import initialization, initialization_cv2
 
 # Setup
-dataset = 0 # 0: KITTI, 1: Malaga, 2: parking, 3: test
+dataset = 1 # 0: KITTI, 1: Malaga, 2: parking, 3: test
 parking_path = "" #"data/parking/images/"
 malaga_path = "" #"data/malaga/Images/"
 kitti_path = "" #"data/kitti/image_0/"
@@ -45,7 +45,7 @@ elif dataset == 1:
     images = sorted(os.listdir(os.path.join(malaga_path, 
                 'data/malaga/malaga-urban-dataset-extract-07_rectified_800x600_Images/')))
     left_images = images[0::2]
-    last_frame = len(left_images) 
+    last_frame = 1560
     K = np.array([
         [621.18428, 0, 404.0076],
         [0, 621.18428, 309.05989],
@@ -54,17 +54,19 @@ elif dataset == 1:
 
     # set parameters for VO pipeline (TODO: tune)
     params["K"] = K
-    params["L_m"] = 2
+    params["L_m"] = 2.5
     params["min_depth"] = 0
     params["max_depth"] = 200
-    angle_threshold_for_triangulation = 3 # in degrees
+    angle_threshold_for_triangulation = 2 # in degrees
     params["angle_threshold_for_triangulation"] = angle_threshold_for_triangulation * np.pi / 180 # convert to radians
     params["distance_threshold"] = 3 # threshold for sorting out duplicate new keypoints
 
 elif dataset == 2:
     assert 'parking_path' in locals()
     last_frame = 598
-    K = np.loadtxt(os.path.join(parking_path, 'data/parking/K.txt'))
+    K = np.loadtxt(os.path.join(parking_path, 'data/parking/K.txt'), delimiter=',')
+    print(K)
+    sleep(1)
     ground_truth = np.loadtxt(os.path.join(parking_path, 'data/parking/poses.txt'))
     ground_truth = ground_truth[:, [-9, -1]]
 
