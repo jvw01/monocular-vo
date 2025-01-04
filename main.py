@@ -13,6 +13,7 @@ from test_init.init import initialization, initialization_cv2
 
 # Setup
 dataset = 1 # 0: KITTI, 1: Malaga, 2: parking, 3: test
+trailing_trajectory_plot = False
 parking_path = "" #"data/parking/images/"
 malaga_path = "" #"data/malaga/Images/"
 kitti_path = "" #"data/kitti/image_0/"
@@ -63,18 +64,21 @@ elif dataset == 1:
 
 elif dataset == 2:
     assert 'parking_path' in locals()
-    last_frame = 598
-    K = np.loadtxt(os.path.join(parking_path, 'data/parking/K.txt'), delimiter=',')
-    print(K)
-    sleep(1)
+    last_frame = 530
+    K = np.array([
+        [331.37, 0, 20],
+        [0, 369.568, 240],
+        [0, 0, 1]
+
+    ])
     ground_truth = np.loadtxt(os.path.join(parking_path, 'data/parking/poses.txt'))
     ground_truth = ground_truth[:, [-9, -1]]
 
     # set parameters for VO pipeline (TODO: tune)
     params["K"] = K
-    params["L_m"] = 2
+    params["L_m"] = 1
     params["min_depth"] = 0
-    params["max_depth"] = 300
+    params["max_depth"] = 150
     angle_threshold_for_triangulation = 3 # in degrees
     params["angle_threshold_for_triangulation"] = angle_threshold_for_triangulation * np.pi / 180 # convert to radians
     params["distance_threshold"] = 2 # threshold for sorting out duplicate new keypoints
@@ -194,6 +198,7 @@ n_new_candidate_keypoints_list = []
 # Visualisation of VO pipeline
 fig = plt.figure(figsize=(14, 7))
 ax1 = plt.subplot2grid((2, 2), (0, 0))
+ax1.set_axis_off()
 ax3 = plt.subplot2grid((2, 2), (1, 0))
 ax2 = plt.subplot2grid((2, 2), (0, 1))
 
@@ -221,8 +226,23 @@ trajectory_plot, = ax2.plot([], [], 'b-o', markersize=3, label='Trajectory')
 trajectory_points_with_low_keypoints_plot, = ax2.plot([], [], "o", color="orange", markersize=5, label=f'low keypoints (<{low_keypoint_plot_threshold})', linestyle='None')
 ax2.legend()
 
-ax3.set_title('Number of tracked keypoints (last 20 frames)')
+ax3.set_title('Number of tracked keypoints (last 20 frames)', y=-0.22)
 keypoints_plot, = ax3.plot([], [])
+
+if not trailing_trajectory_plot:
+    if dataset == 0:
+        ax2.set_aspect('equal',adjustable='box')
+        ax2.set_xlim(-200, 900)
+        ax2.set_ylim(-300, 550)
+    elif dataset == 1:
+        ax2.set_aspect('equal',adjustable='box')
+        ax2.set_xlim(-200, 900)
+        ax2.set_ylim(-250, 450)
+    elif dataset == 2:
+        ax2.set_aspect('equal',adjustable='box')
+        ax2.set_xlim(0, 1400)
+        ax2.set_ylim(-700, 100)
+
 
 for index, i in enumerate(range_frames):
     print(f"\n\nProcessing frame {i}\n{'=' * 21}\n")
@@ -308,21 +328,27 @@ for index, i in enumerate(range_frames):
         indices_with_low_keypoints += [i]
 
     landmarks_plot.set_data(S["landmarks"][:, 0], S["landmarks"][:, 2])
-    if index < 100:
-        trajectory_plot.set_data(trajectory[0, :index+1], trajectory[2, :index+1])
-    else:
-        trajectory_plot.set_data(trajectory[0, index+1-100:index+1], trajectory[2, index+1-100:index+1])
-    # trajectory_points_with_low_keypoints_plot.set_data([item[0] for item in trajectory_points_with_low_keypoints], [item[2] for item in trajectory_points_with_low_keypoints])
-    if index < 100:
-        combined_x = np.concatenate((trajectory[0, :index+1], S["landmarks"][:, 0]))
-        combined_z = np.concatenate((trajectory[2, :index+1], S["landmarks"][:, 2]))
-    else:
-        combined_x = np.concatenate((trajectory[0, index+1-100:index+1], S["landmarks"][:, 0]))
-        combined_z = np.concatenate((trajectory[2, index+1-100:index+1], S["landmarks"][:, 2]))
+
+    if trailing_trajectory_plot:
+        if index < 100:
+            trajectory_plot.set_data(trajectory[0, :index+1], trajectory[2, :index+1])
+        else:
+            trajectory_plot.set_data(trajectory[0, index+1-100:index+1], trajectory[2, index+1-100:index+1])
+        if index < 100:
+            combined_x = np.concatenate((trajectory[0, :index+1], S["landmarks"][:, 0]))
+            combined_z = np.concatenate((trajectory[2, :index+1], S["landmarks"][:, 2]))
+        else:
+            combined_x = np.concatenate((trajectory[0, index+1-100:index+1], S["landmarks"][:, 0]))
+            combined_z = np.concatenate((trajectory[2, index+1-100:index+1], S["landmarks"][:, 2]))
     # ax2.axis('equal')
     # plt.axes().set_aspect(1)
-    ax2.set_xlim(np.min(combined_x) - 1, np.max(combined_x) + 1)
-    ax2.set_ylim(np.min(combined_z) - 1, np.max(combined_z) + 1)
+
+        ax2.set_xlim(np.min(combined_x) - 1, np.max(combined_x) + 1)
+        ax2.set_ylim(np.min(combined_z) - 1, np.max(combined_z) + 1)
+
+    else:
+        trajectory_plot.set_data(trajectory[0, :index+1], trajectory[2, :index+1])
+        trajectory_points_with_low_keypoints_plot.set_data([item[0] for item in trajectory_points_with_low_keypoints], [item[2] for item in trajectory_points_with_low_keypoints])
     # fig.subplots_adjust(right=0.5)
     plt.pause(0.001)
 
