@@ -9,10 +9,10 @@ import matplotlib.transforms as transforms
 bootstrap = True # boolean variable to determine if we are bootstrapping or not
 low_keypoint_plot_threshold = 200
 import matplotlib.pyplot as plt
-from test_init.init import initialization, initialization_cv2
+from test_init.init import initialization_cv2
 
 # Setup
-dataset = 1 # 0: KITTI, 1: Malaga, 2: parking, 3: test
+dataset = 2 # 0: KITTI, 1: Malaga, 2: parking, 3: test
 trailing_trajectory_plot = False
 parking_path = "" #"data/parking/images/"
 malaga_path = "" #"data/malaga/Images/"
@@ -34,12 +34,12 @@ if dataset == 0:
 
     # set parameters for VO pipeline (tuned)
     params["K"] = K
-    params["L_m"] = 2
-    params["min_depth"] = 0
-    params["max_depth"] = 200
-    angle_threshold_for_triangulation = 2 # in degrees
+    params["L_m"] = 0
+    params["min_depth"] = 1
+    params["max_depth"] = 100
+    angle_threshold_for_triangulation = 1 # in degrees
     params["angle_threshold_for_triangulation"] = angle_threshold_for_triangulation * np.pi / 180 # convert to radians
-    params["distance_threshold"] = 3 # threshold for sorting out duplicate new keypoints
+    params["distance_threshold"] = 1 # threshold for sorting out duplicate new keypoints
 
 elif dataset == 1:
     assert 'malaga_path' in locals()
@@ -55,10 +55,10 @@ elif dataset == 1:
 
     # set parameters for VO pipeline (TODO: tune)
     params["K"] = K
-    params["L_m"] = 2.5
-    params["min_depth"] = 0
-    params["max_depth"] = 200
-    angle_threshold_for_triangulation = 2 # in degrees
+    params["L_m"] = 0
+    params["min_depth"] = 2
+    params["max_depth"] = 50
+    angle_threshold_for_triangulation = 1 # in degrees
     params["angle_threshold_for_triangulation"] = angle_threshold_for_triangulation * np.pi / 180 # convert to radians
     params["distance_threshold"] = 3 # threshold for sorting out duplicate new keypoints
 
@@ -179,7 +179,6 @@ else:
 # CONTINUOUS OPERATION
 if bootstrap:
     range_frames = range(bootstrap_frames[1] + 1, last_frame)
-    print(last_frame)
 else:
     # range_frames = range(1, last_frame + 1)
     range_frames = range(1, 100) # Hardcode this because we don't have the rest of the dataset available right now
@@ -350,7 +349,7 @@ for index, i in enumerate(range_frames):
         trajectory_plot.set_data(trajectory[0, :index+1], trajectory[2, :index+1])
         trajectory_points_with_low_keypoints_plot.set_data([item[0] for item in trajectory_points_with_low_keypoints], [item[2] for item in trajectory_points_with_low_keypoints])
     # fig.subplots_adjust(right=0.5)
-    plt.pause(0.001)
+    # plt.pause(0.0001)
 
 # plt.close()
 fig, axs = plt.subplots(2, 1, figsize=(7, 7))
