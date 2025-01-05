@@ -10,7 +10,7 @@ from test_init.init_fct import plotMatches, decomposeEssentialMatrix, disambigua
 from test_init.init_fct import fundamentalEightPointNormalized
 from test_init.init_fct import ransacLocalization, drawCamera, getMatchedKeypoints
 
-def initialization_cv2(img0, img1, dataset, K, left_images=0, verbosity=1):
+def initialization_cv2(img0, img1, dataset, K, left_images=0, verbosity=0):
     """
     Initialization using cv2 Harris detection, cv2 descriptor computation, 
     and cv2 feature matching. Replicates the same plots as the original 'initialization'.
@@ -95,7 +95,6 @@ def initialization_cv2(img0, img1, dataset, K, left_images=0, verbosity=1):
     # Sort by distance
     matches = sorted(matches, key=lambda x: x.distance)
 
-
     # Extract matched keypoints in (2,N) shape
     matched_pts1 = []
     matched_pts2 = []
@@ -174,7 +173,7 @@ def initialization_cv2(img0, img1, dataset, K, left_images=0, verbosity=1):
     # We return the *matched keypoints from image1* (2,N) and the 3D points
     return matched_pts2, P
 
-def landmarks_3D_cv2 (keypoints, keypoints_2, K, verbosity=1):
+def landmarks_3D_cv2 (keypoints, keypoints_2, K, verbosity=0):
     E, mask = cv2.findEssentialMat(keypoints.T, keypoints_2.T, K, method=cv2.RANSAC, prob=0.999, threshold=1.0)
     keypoints = np.expand_dims(keypoints.T, 1)[mask == 1].T
     keypoints_2 = np.expand_dims(keypoints_2.T, 1)[mask == 1].T

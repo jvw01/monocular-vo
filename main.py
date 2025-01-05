@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from test_init.init import initialization_cv2
 
 # Setup
-dataset = 1# 0: KITTI, 1: Malaga, 2: parking, 3: test
+dataset = 2 #0: KITTI, 1: Malaga, 2: parking, 3: test
 trailing_trajectory_plot = False
 parking_path = "" #"data/parking/images/"
 malaga_path = "" #"data/malaga/Images/"
@@ -32,7 +32,7 @@ if dataset == 0:
         [0, 0, 1]
     ])
 
-    # set parameters for VO pipeline (tuned)
+    # set parameters for VO pipeline
     params["K"] = K
     params["L_m"] = 0
     params["min_depth"] = 1
@@ -53,11 +53,11 @@ elif dataset == 1:
         [0, 0, 1]
     ])
 
-    # set parameters for VO pipeline (TODO: tune)
+    # set parameters for VO pipeline
     params["K"] = K
-    params["L_m"] = 0
-    params["min_depth"] = 0.5
-    params["max_depth"] = 250
+    params["L_m"] = 3
+    params["min_depth"] = 1
+    params["max_depth"] = 120
     angle_threshold_for_triangulation = 1 # in degrees
     params["angle_threshold_for_triangulation"] = angle_threshold_for_triangulation * np.pi / 180 # convert to radians
     params["distance_threshold"] = 2 # threshold for sorting out duplicate new keypoints
@@ -66,15 +66,15 @@ elif dataset == 2:
     assert 'parking_path' in locals()
     last_frame = 530
     K = np.array([
-        [331.37, 0, 20],
+        [331.37, 0, 320],
         [0, 369.568, 240],
         [0, 0, 1]
-
     ])
+    
     ground_truth = np.loadtxt(os.path.join(parking_path, 'data/parking/poses.txt'))
     ground_truth = ground_truth[:, [-9, -1]]
 
-    # set parameters for VO pipeline (TODO: tune)
+    # set parameters for VO pipeline
     params["K"] = K
     params["L_m"] = 1
     params["min_depth"] = 0
@@ -106,7 +106,7 @@ else:
 
 if bootstrap:
     # Load frames to perform bootstrapping on
-    bootstrap_frames = [0, 4]
+    bootstrap_frames = [0, 4] #4
 
     if dataset == 0:
         img0 = cv2.imread(os.path.join(kitti_path, 'data/kitti/05/image_0/', 
@@ -129,15 +129,6 @@ if bootstrap:
         raise AssertionError("Invalid dataset selection")
     
     key_points, p_W_landmarks_normalized = initialization_cv2(img0,img1,dataset, K, verbosity=0)
-
-    # # Normalize landmarks from (K, 4) to (K, 3)
-    # if p_W_landmarks.shape[0] == 4:
-    #     # Extract the w component and reshape for broadcasting
-    #     w = p_W_landmarks[3, :].reshape(1, -1) + 1e-10  # Avoid division by zero
-    #     p_W_landmarks_normalized = p_W_landmarks[:3, :] / w
-    # else:
-    #     # If already in Cartesian coordinates, no change needed
-    #     p_W_landmarks_normalized = p_W_landmarks
     
     # check datatype of key_points and p_W_landmarks
     if key_points.dtype != np.float32:
@@ -174,7 +165,6 @@ else:
                 }
     else:
         raise NotImplementedError(f'Pre-computed bootstrapping values not available for this dataset.')
-
 
 # CONTINUOUS OPERATION
 if bootstrap:
@@ -231,12 +221,12 @@ keypoints_plot, = ax3.plot([], [])
 if not trailing_trajectory_plot:
     if dataset == 0:
         ax2.set_aspect('equal',adjustable='box')
-        ax2.set_xlim(-200, 900)
-        ax2.set_ylim(-300, 550)
+        ax2.set_xlim(-100, 500)
+        ax2.set_ylim(-100, 200)
     elif dataset == 1:
         ax2.set_aspect('equal',adjustable='box')
-        ax2.set_xlim(-200, 900)
-        ax2.set_ylim(-250, 450)
+        ax2.set_xlim(-200, 10)
+        ax2.set_ylim(0, 150)
     elif dataset == 2:
         ax2.set_aspect('equal',adjustable='box')
         ax2.set_xlim(0, 1400)
@@ -339,8 +329,6 @@ for index, i in enumerate(range_frames):
         else:
             combined_x = np.concatenate((trajectory[0, index+1-100:index+1], S["landmarks"][:, 0]))
             combined_z = np.concatenate((trajectory[2, index+1-100:index+1], S["landmarks"][:, 2]))
-    # ax2.axis('equal')
-    # plt.axes().set_aspect(1)
 
         ax2.set_xlim(np.min(combined_x) - 1, np.max(combined_x) + 1)
         ax2.set_ylim(np.min(combined_z) - 1, np.max(combined_z) + 1)
@@ -349,7 +337,7 @@ for index, i in enumerate(range_frames):
         trajectory_plot.set_data(trajectory[0, :index+1], trajectory[2, :index+1])
         trajectory_points_with_low_keypoints_plot.set_data([item[0] for item in trajectory_points_with_low_keypoints], [item[2] for item in trajectory_points_with_low_keypoints])
     # fig.subplots_adjust(right=0.5)
-    # plt.pause(0.0001)
+    plt.pause(0.0001)
 
 # plt.close()
 fig, axs = plt.subplots(2, 1, figsize=(7, 7))
