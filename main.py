@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from test_init.init import initialization_cv2
 
 # Setup
-dataset = 2 #0: KITTI, 1: Malaga, 2: parking, 3: test
+dataset = 0 # 0: KITTI, 1: Malaga, 2: parking, 3: test
 trailing_trajectory_plot = False
 parking_path = "" #"data/parking/images/"
 malaga_path = "" #"data/malaga/Images/"
@@ -138,8 +138,8 @@ if bootstrap:
 
     # Save into the dictionary with normalized landmarks
     S_prev = {
-        "keypoints": key_points.T,                   # Shape: (K, 2) -> transpose
-        "landmarks": p_W_landmarks_normalized.T,    # Shape: (K, 3) -> transpose
+        "keypoints": key_points.T, # dim: Kx2
+        "landmarks": p_W_landmarks_normalized.T, # dim: Kx3
         "candidate_keypoints": None,
         "first_observations": None,
         "pose_at_first_observation": None
@@ -170,7 +170,6 @@ else:
 if bootstrap:
     range_frames = range(bootstrap_frames[1] + 1, last_frame)
 else:
-    # range_frames = range(1, last_frame + 1)
     range_frames = range(1, 100) # Hardcode this because we don't have the rest of the dataset available right now
 img_prev = img0
 
@@ -193,8 +192,6 @@ ax2 = plt.subplot2grid((2, 2), (0, 1))
 
 ax1.set_title('Keypoints')  # Set the title of the figure
 img_plot = ax1.imshow(img0, cmap='gray')
-# keypoints_plot, = ax1.plot([], [], 'yo', markersize=5, label='Keypoints')
-# candidate_keypoints_plot, = ax1.plot([], [], 'bo', markersize=5, label='Candidate Keypoints')
 untrackable_keypoints_plot, = ax1.plot([], [], 'ro', markersize=3, label='Untrackable KP')
 trackable_outlier_keypoints_plot, = ax1.plot([], [], 'o', color='orange', markersize=3, label='Trackable outlier KP')
 trackable_keypoints_plot, = ax1.plot([], [], 'go', markersize=3, label='Trackable KP')
@@ -231,7 +228,6 @@ if not trailing_trajectory_plot:
         ax2.set_aspect('equal',adjustable='box')
         ax2.set_xlim(0, 1400)
         ax2.set_ylim(-700, 100)
-
 
 for index, i in enumerate(range_frames):
     print(f"\n\nProcessing frame {i}\n{'=' * 21}\n")
@@ -336,10 +332,8 @@ for index, i in enumerate(range_frames):
     else:
         trajectory_plot.set_data(trajectory[0, :index+1], trajectory[2, :index+1])
         trajectory_points_with_low_keypoints_plot.set_data([item[0] for item in trajectory_points_with_low_keypoints], [item[2] for item in trajectory_points_with_low_keypoints])
-    # fig.subplots_adjust(right=0.5)
     plt.pause(0.0001)
 
-# plt.close()
 fig, axs = plt.subplots(2, 1, figsize=(7, 7))
 axs[0].title.set_text('Trajectory')
 axs[0].plot(trajectory[0, :], trajectory[2, :], 'b-o', markersize=3)

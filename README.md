@@ -9,9 +9,9 @@
 ## Screencasts:
 These are the links to the screencasts recorded for each of the datasets:
 
-- KITTI: LINK
-- Malaga: LINK
-- Parking: LINK
+- KITTI: [Kitti](https://youtu.be/iMiLZzel61M)
+- Malaga: [Malaga](https://youtu.be/ksQePvSiVzQ)
+- Parking: [Parking](https://youtu.be/6iXwq24SfQY)
 
 ## Specifications of the machine used to record the screencasts
 The machine on which we recorded the screencasts was an ASUS Zenbook 14 OLED with the following specifications:
@@ -20,8 +20,8 @@ The machine on which we recorded the screencasts was an ASUS Zenbook 14 OLED wit
 - NVidia GeForce RTX onboard graphics
 - Runnning Ubuntu 22.04
 
-The metrics while running the pipeline were the following, as seen in this screencast of the System Monitor taken while the pipeline was running:
-INSERT LINK HERE
+The metrics while running the KITTI pipeline were the following, as seen in this screencast of the System Monitor taken while the pipeline was running:
+[Kitti System Monitor](https://youtu.be/w8Ba_fKGgv0)
 
 
 ## Putting the datasets in the right place

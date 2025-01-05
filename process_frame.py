@@ -86,7 +86,6 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, params: di
         promotable_keypoints = candidate_keypoints[S_prev["keypoint_tracker"] > L_m]
         n_promotable_keypoints = promotable_keypoints.shape[0]
         debug_dict["n_promotable_keypoints_before_angle_filtering"] = n_promotable_keypoints
-        # debug_dict["promotable_keypoints"] = promotable_keypoints
 
         # remove promotable keypoints from candidate list -> keypoints that can eventually not be promoted will be added again
         candidate_keypoints = candidate_keypoints[S_prev["keypoint_tracker"] <= L_m]
@@ -156,10 +155,6 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, params: di
                     M1 = K @ T_CW_first_observation
                     promoted_landmark = cv2.triangulatePoints(projMatr1=M1, projMatr2=M2, projPoints1=promoted_keypoints_first_observations[i], projPoints2=promotable_keypoints_after_angle_threshold[i])
                     promoted_landmark = (promoted_landmark / promoted_landmark[3])[:3].squeeze() # normalize homogeneous coordinates
-
-                    # if len(promoted_landmark.shape) == 1:
-                    #     # If there is only one promoted landmark, the returned array is of shape (3,) instead of (3,N) -> add dimension so the masking works smoothly
-                    #     promoted_landmarks = promoted_landmarks[:, None]
                     
                     promoted_landmark_C2_frame = T_CW @ np.hstack((promoted_landmark, np.ones(1)))
                     mask = (promoted_landmark_C2_frame[2] > min_depth) & (promoted_landmark_C2_frame[2] < max_depth)
@@ -219,14 +214,6 @@ def processFrame(img: np.ndarray, img_prev: np.ndarray, S_prev: dict, params: di
     # ------------------ Extract new keypoints and remove duplicates
     # OPTION 1: goodFeaturesToTrack
     new_candidate_keypoints = cv2.goodFeaturesToTrack(img, maxCorners=1400, qualityLevel=0.1, minDistance=10).squeeze() # dim: Kx2
-
-    # OPTION 2: use functions from exercise 03
-    # corner_patch_size = 9
-    # harris_kappa = 0.08
-    # num_keypoints = 200
-    # nonmaximum_supression_radius = 8
-    # harris_scores = harris(img, corner_patch_size, harris_kappa)
-    # new_candidate_keypoints = selectKeypoints(harris_scores, num_keypoints, nonmaximum_supression_radius).T
 
     # remove duplicates in keypoints and candidate keypoints
     is_duplicate_kp = np.any(np.linalg.norm(new_candidate_keypoints[:, None, :] - keypoints[None, :, :], axis=2) <= distance_threshold, axis=1) # note: for broadcasting, dimensions have to match or be one
