@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from test_init.init import initialization_cv2
 
 # Setup
-dataset = 2 # 0: KITTI, 1: Malaga, 2: parking, 3: test
+dataset = 1# 0: KITTI, 1: Malaga, 2: parking, 3: test
 trailing_trajectory_plot = False
 parking_path = "" #"data/parking/images/"
 malaga_path = "" #"data/malaga/Images/"
@@ -56,11 +56,11 @@ elif dataset == 1:
     # set parameters for VO pipeline (TODO: tune)
     params["K"] = K
     params["L_m"] = 0
-    params["min_depth"] = 2
-    params["max_depth"] = 50
+    params["min_depth"] = 0.5
+    params["max_depth"] = 250
     angle_threshold_for_triangulation = 1 # in degrees
     params["angle_threshold_for_triangulation"] = angle_threshold_for_triangulation * np.pi / 180 # convert to radians
-    params["distance_threshold"] = 3 # threshold for sorting out duplicate new keypoints
+    params["distance_threshold"] = 2 # threshold for sorting out duplicate new keypoints
 
 elif dataset == 2:
     assert 'parking_path' in locals()
