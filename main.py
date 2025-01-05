@@ -106,7 +106,7 @@ else:
 
 if bootstrap:
     # Load frames to perform bootstrapping on
-    bootstrap_frames = [0, 4] #4
+    bootstrap_frames = [0, 4]
 
     if dataset == 0:
         img0 = cv2.imread(os.path.join(kitti_path, 'data/kitti/05/image_0/', 
@@ -332,7 +332,7 @@ for index, i in enumerate(range_frames):
     else:
         trajectory_plot.set_data(trajectory[0, :index+1], trajectory[2, :index+1])
         trajectory_points_with_low_keypoints_plot.set_data([item[0] for item in trajectory_points_with_low_keypoints], [item[2] for item in trajectory_points_with_low_keypoints])
-    # plt.pause(0.0001)
+    plt.pause(0.0001)
 
 fig, axs = plt.subplots(2, 1, figsize=(7, 7))
 axs[0].title.set_text('Trajectory')
