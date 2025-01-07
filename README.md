@@ -25,8 +25,7 @@ The metrics while running the KITTI pipeline were the following, as seen in this
 
 
 ## Putting the datasets in the right place
-We have zipped the entire running folder including the imagedataset and uploaded it here:
-INSERT LINK HERE
+We have zipped the entire running folder including the imagedataset and uploaded it to polybox (link in email).
 
 
 In case you would like to place the datasets manually, we describe the required locations in the following:
@@ -49,7 +48,7 @@ You can select the desired dataset inside the code as described further down.
 
 ## Running the pipeline
 To run the pipeline, perform the following steps:
-1. Install the anaconda environment from the provided environment.yml file:
+1. Navigate to the base directory of the repo (where this readme is also located) and install the anaconda environment from the provided environment.yml file:
 
 ```bash
 conda env create -f environment.yml
@@ -57,13 +56,15 @@ conda env create -f environment.yml
 
 2. Activate the conda environment:
 ```bash
-conda activate ENV_NAME
+conda activate VAMR_Project
 ```
 
-3. Navigate to the base directory of the repo, then run the following command:
+3. Then run the following command:
 ```bash
 python3 main.py
 ```
+
+Alternatively, when opening in VS Code, select the created environment as your interpreter and press the Run button while having the main.py file open.
 
 This will run the entire pipeline and create the intermediate plots as well as the final metric plot.
 The dataset can be selected by changing the dataset integer in line 15 of the main.py file:
