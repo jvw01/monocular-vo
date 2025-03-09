@@ -23,10 +23,8 @@ The machine on which we recorded the screencasts was an ASUS Zenbook 14 OLED wit
 The metrics while running the KITTI pipeline were the following, as seen in this screencast of the System Monitor taken while the pipeline was running:
 [Kitti System Monitor](https://youtu.be/w8Ba_fKGgv0)
 
-
 ## Putting the datasets in the right place
 We have zipped the entire running folder including the imagedataset and uploaded it to polybox (link in email).
-
 
 In case you would like to place the datasets manually, we describe the required locations in the following:
 From the base directory of this repository, the images of the datasets should be inside the following folder structure:
