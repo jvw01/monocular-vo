@@ -48,9 +48,9 @@ if dataset == 0:
     params["angle_threshold_for_triangulation"] = (
         angle_threshold_for_triangulation * np.pi / 180
     )  # convert to radians
-    params[
-        "distance_threshold"
-    ] = 1  # threshold for sorting out duplicate new keypoints
+    params["distance_threshold"] = (
+        1  # threshold for sorting out duplicate new keypoints
+    )
 
 elif dataset == 1:
     assert "malaga_path" in locals()
@@ -75,9 +75,9 @@ elif dataset == 1:
     params["angle_threshold_for_triangulation"] = (
         angle_threshold_for_triangulation * np.pi / 180
     )  # convert to radians
-    params[
-        "distance_threshold"
-    ] = 2  # threshold for sorting out duplicate new keypoints
+    params["distance_threshold"] = (
+        2  # threshold for sorting out duplicate new keypoints
+    )
 
 elif dataset == 2:
     assert "parking_path" in locals()
@@ -96,9 +96,9 @@ elif dataset == 2:
     params["angle_threshold_for_triangulation"] = (
         angle_threshold_for_triangulation * np.pi / 180
     )  # convert to radians
-    params[
-        "distance_threshold"
-    ] = 2  # threshold for sorting out duplicate new keypoints
+    params["distance_threshold"] = (
+        2  # threshold for sorting out duplicate new keypoints
+    )
 
 elif dataset == 3:
     assert "kitti_path" in locals()
@@ -114,9 +114,9 @@ elif dataset == 3:
     params["angle_threshold_for_triangulation"] = (
         angle_threshold_for_triangulation * np.pi / 180
     )  # convert to radians
-    params[
-        "distance_threshold"
-    ] = 3  # threshold for sorting out duplicate new keypoints
+    params["distance_threshold"] = (
+        3  # threshold for sorting out duplicate new keypoints
+    )
 
 else:
     raise AssertionError("Invalid dataset selection for bootstrapping")

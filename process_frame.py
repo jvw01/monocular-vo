@@ -114,9 +114,9 @@ def processFrame(
         # ------------------ Promote keypoints
         promotable_keypoints = candidate_keypoints[S_prev["keypoint_tracker"] > L_m]
         n_promotable_keypoints = promotable_keypoints.shape[0]
-        debug_dict[
-            "n_promotable_keypoints_before_angle_filtering"
-        ] = n_promotable_keypoints
+        debug_dict["n_promotable_keypoints_before_angle_filtering"] = (
+            n_promotable_keypoints
+        )
 
         # remove promotable keypoints from candidate list -> keypoints that can eventually not be promoted will be added again
         candidate_keypoints = candidate_keypoints[S_prev["keypoint_tracker"] <= L_m]
@@ -180,9 +180,9 @@ def processFrame(
                 alpha > angle_threshold_for_triangulation
             )  # mask that indicates if the angle between the bearing vectors is large enough for triangulation
             # filter keypoints that can be promoted (angle between bearing vectors is large enough)
-            debug_dict[
-                "untriangulatable_promotable_candidate_keypoints"
-            ] = promotable_keypoints[~triangulate]
+            debug_dict["untriangulatable_promotable_candidate_keypoints"] = (
+                promotable_keypoints[~triangulate]
+            )
             promotable_keypoints_after_angle_threshold = promotable_keypoints[
                 triangulate
             ]
@@ -234,9 +234,9 @@ def processFrame(
 
                 # Loop through all groups of candidate keypoints (groups were found in the same original image and hence can be triangulated together)
                 debug_dict["n_promoted_keypoints"] = 0
-                debug_dict[
-                    "promotable_candidate_keypoints_outside_thresholds"
-                ] = np.empty((0, 2), dtype=np.float32)
+                debug_dict["promotable_candidate_keypoints_outside_thresholds"] = (
+                    np.empty((0, 2), dtype=np.float32)
+                )
                 debug_dict["promoted_candidate_keypoints"] = np.empty(
                     (0, 2), dtype=np.float32
                 )
@@ -318,9 +318,9 @@ def processFrame(
                             (keypoint_tracker, promoted_keypoint_tracker[i])
                         )
             else:
-                debug_dict[
-                    "promotable_candidate_keypoints_outside_thresholds"
-                ] = np.empty((0, 2), dtype=np.float32)
+                debug_dict["promotable_candidate_keypoints_outside_thresholds"] = (
+                    np.empty((0, 2), dtype=np.float32)
+                )
                 debug_dict["promoted_candidate_keypoints"] = np.empty(
                     (0, 2), dtype=np.float32
                 )
@@ -380,9 +380,9 @@ def processFrame(
         <= distance_threshold,
         axis=1,
     )  # note: for broadcasting, dimensions have to match or be one
-    debug_dict[
-        "candidate_keypoints_duplicate_with_keypoints"
-    ] = new_candidate_keypoints[is_duplicate_kp]
+    debug_dict["candidate_keypoints_duplicate_with_keypoints"] = (
+        new_candidate_keypoints[is_duplicate_kp]
+    )
     new_candidate_keypoints = new_candidate_keypoints[~is_duplicate_kp]
     is_duplicate_ckp = np.any(
         np.linalg.norm(
@@ -392,9 +392,9 @@ def processFrame(
         <= distance_threshold,
         axis=1,
     )
-    debug_dict[
-        "candidate_keypoints_duplicate_with_prev_candidate_keypoints"
-    ] = new_candidate_keypoints[is_duplicate_ckp]
+    debug_dict["candidate_keypoints_duplicate_with_prev_candidate_keypoints"] = (
+        new_candidate_keypoints[is_duplicate_ckp]
+    )
     new_candidate_keypoints = new_candidate_keypoints[~is_duplicate_ckp]
     debug_dict["new_candidate_keypoints"] = new_candidate_keypoints
 
