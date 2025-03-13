@@ -27,7 +27,7 @@ These are the links to the screencasts recorded for each of the datasets:
 The machine on which we recorded the screencasts was an ASUS Zenbook 14 OLED with the following specifications:
 - Intel Evo i9 CPU
 - 32 GB RAM
-- NVidia GeForce RTX onboard graphics
+- Nvidia GeForce RTX onboard graphics
 - Runnning Ubuntu 22.04
 
 The metrics while running the KITTI pipeline were the following, as seen in this screencast of the System Monitor taken while the pipeline was running:
