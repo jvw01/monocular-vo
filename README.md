@@ -11,9 +11,10 @@ In addition, further optimization techniques such as Bundle Adjustment or Pose-G
 
 The program was developed from scratch as part of the course *Vision Algorithms for Mobile Robots* at UZH, taught by Prof. Scaramuzza.
 
-![PIPELINE](img/keypoints_in_image_plot.png)
-
-![KITTI](img/kitti_final_plot.png)
+<p align="center">
+    <img src="img/keypoints_in_image_plot.png" alt="image">
+    <img src="img/kitti_final_plot.png" alt="image">
+</p>
 
 ## Screencasts:
 These are the links to the screencasts recorded for each of the datasets:
@@ -73,8 +74,6 @@ conda activate VAMR_Project
 ```bash
 python3 main.py
 ```
-
-
 
 The dataset can be selected by changing the dataset integer in line 26 of the main.py file:
 ```bash
